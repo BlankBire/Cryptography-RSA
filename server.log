@@ -1060,3 +1060,21 @@ AttributeError: 'tuple' object has no attribute 'status_code'
 2025-06-05 11:47:23,184 - __main__ - INFO - Signature verification result: True
 2025-06-05 11:47:23,185 - __main__ - INFO - Request: POST /api/verify - Duration: 0.00s - Status: 200
 2025-06-05 11:47:23,185 - werkzeug - INFO - 127.0.0.1 - - [05/Jun/2025 11:47:23] "POST /api/verify HTTP/1.1" 200 -
+2025-06-05 12:29:03,672 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:4444
+ * Running on http://192.168.77.128:4444
+2025-06-05 12:29:03,672 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-06-05 12:29:07,399 - werkzeug - INFO - 127.0.0.1 - - [05/Jun/2025 12:29:07] "GET / HTTP/1.1" 200 -
+2025-06-05 12:29:11,279 - rsa_core - INFO - Generated 3072-bit RSA keypair with e=16777217 in 2.24s
+2025-06-05 12:29:11,290 - __main__ - INFO - Generated new RSA keypair with 3072 bits
+2025-06-05 12:29:11,291 - __main__ - INFO - Request: POST /api/generate-keys - Duration: 2.25s - Status: 200
+2025-06-05 12:29:11,291 - werkzeug - INFO - 127.0.0.1 - - [05/Jun/2025 12:29:11] "POST /api/generate-keys HTTP/1.1" 200 -
+2025-06-05 12:29:22,831 - rsa_core - INFO - Generated 3072-bit RSA keypair with e=16777217 in 0.93s
+2025-06-05 12:29:22,834 - __main__ - INFO - Generated new RSA keypair with 3072 bits
+2025-06-05 12:29:22,834 - __main__ - INFO - Request: POST /api/generate-keys - Duration: 0.93s - Status: 200
+2025-06-05 12:29:22,834 - werkzeug - INFO - 127.0.0.1 - - [05/Jun/2025 12:29:22] "POST /api/generate-keys HTTP/1.1" 200 -
+2025-06-05 12:29:30,920 - rsa_core - INFO - Generated 3072-bit RSA keypair with e=16777217 in 4.11s
+2025-06-05 12:29:30,923 - __main__ - INFO - Generated new RSA keypair with 3072 bits
+2025-06-05 12:29:30,923 - __main__ - INFO - Request: POST /api/generate-keys - Duration: 4.11s - Status: 200
+2025-06-05 12:29:30,923 - werkzeug - INFO - 127.0.0.1 - - [05/Jun/2025 12:29:30] "POST /api/generate-keys HTTP/1.1" 200 -

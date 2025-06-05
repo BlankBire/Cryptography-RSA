@@ -4,4 +4,5 @@ venv/
 env/
 .venv/
 private_key.pem
+public_key.pem
 server.log
