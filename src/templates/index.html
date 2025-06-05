@@ -33,7 +33,7 @@
             <div class="card-body">
                 <div class="mb-3">
                     <label class="form-label">Key Size (bits)</label>
-                    <input type="number" class="form-control" id="keySize" value="1024">
+                    <input type="number" class="form-control" id="keySize" value="3072">
                 </div>
                 <button class="btn btn-primary" onclick="generateKeys()">Generate Keys</button>
                 <div id="keyResult" class="result-box" style="display: none;">
@@ -120,6 +120,21 @@
                     body: JSON.stringify({ bits: parseInt(bits) })
                 });
                 const data = await response.json();
+                // Convert all key fields to string to avoid float issues
+                if (data.public_key) {
+                    data.public_key.n = data.public_key.n.toString();
+                    data.public_key.e = data.public_key.e.toString();
+                }
+                if (data.private_key) {
+                    data.private_key.n = data.private_key.n.toString();
+                    data.private_key.d = data.private_key.d.toString();
+                    data.private_key.p = data.private_key.p.toString();
+                    data.private_key.q = data.private_key.q.toString();
+                }
+                // Copy e from public_key to private_key for signing
+                if (data.public_key && data.private_key) {
+                    data.private_key.e = data.public_key.e;
+                }
                 currentKeys = data;
 
                 document.getElementById('publicKey').textContent = JSON.stringify(data.public_key, null, 2);
@@ -131,38 +146,89 @@
         }
 
         async function signMessage() {
-            if (!currentKeys) {
-                alert('Please generate keys first');
+            if (!currentKeys || !currentKeys.private_key) {
+                document.getElementById('signature').textContent = 'Error: Please generate keys first or private key is missing!';
+                document.getElementById('signatureResult').style.display = 'block';
                 return;
             }
 
             const message = document.getElementById('messageToSign').value;
+            if (!message) {
+                alert('Please enter a message to sign!');
+                return;
+            }
+            // Kiểm tra private_key có đủ trường không
+            const priv = currentKeys.private_key;
+            if (!priv || !priv.n || !priv.d || !priv.p || !priv.q) {
+                alert('Private key is invalid or missing fields!');
+                return;
+            }
+            // Always send as string to avoid float issues
+            const privToSend = {
+                n: priv.n.toString(),
+                e: priv.e.toString(),
+                d: priv.d.toString(),
+                p: priv.p.toString(),
+                q: priv.q.toString()
+            };
             try {
                 const response = await fetch(`${API_URL}/sign`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: message,
-                        private_key: currentKeys.private_key
+                        private_key: privToSend
                     })
                 });
                 const data = await response.json();
-
-                document.getElementById('signature').textContent = data.signature;
+                if (data.error) {
+                    document.getElementById('signature').textContent = 'Error: ' + data.error;
+                } else {
+                    document.getElementById('signature').textContent = data.signature;
+                }
                 document.getElementById('signatureResult').style.display = 'block';
             } catch (error) {
-                alert('Error signing message: ' + error.message);
+                document.getElementById('signature').textContent = 'Error signing message: ' + error.message;
+                document.getElementById('signatureResult').style.display = 'block';
             }
         }
 
         async function verifySignature() {
-            if (!currentKeys) {
-                alert('Please generate keys first');
+            if (!currentKeys || !currentKeys.public_key) {
+                document.getElementById('verificationStatus').textContent = 'Error: Please generate keys first or public key is missing!';
+                document.getElementById('verificationResult').style.display = 'block';
+                return;
+            }
+            // Trim whitespace from inputs
+            const message = document.getElementById('messageToVerify').value.trim();
+            const signature = document.getElementById('signatureToVerify').value.trim();
+
+            if (!message || !signature) {
+                document.getElementById('verificationStatus').textContent = 'Error: Please enter both message and signature!';
+                document.getElementById('verificationResult').style.display = 'block';
                 return;
             }
 
-            const message = document.getElementById('messageToVerify').value;
-            const signature = document.getElementById('signatureToVerify').value;
+            // Basic check for Base64 format (optional but helpful)
+            const base64Regex = /^[A-Za-z0-9+/=]+$/;
+            if (!base64Regex.test(signature)) {
+                document.getElementById('verificationStatus').textContent = 'Error: Signature does not appear to be valid Base64.';
+                document.getElementById('verificationResult').style.display = 'block';
+                return;
+            }
+
+            // Kiểm tra public_key có đủ trường không
+            const pub = currentKeys.public_key;
+            if (!pub || !pub.n || !pub.e) {
+                document.getElementById('verificationStatus').textContent = 'Error: Public key is invalid or missing fields!';
+                document.getElementById('verificationResult').style.display = 'block';
+                return;
+            }
+            // Always send as string to avoid float issues
+            const pubToSend = {
+                n: pub.n.toString(),
+                e: pub.e.toString()
+            };
             try {
                 const response = await fetch(`${API_URL}/verify`, {
                     method: 'POST',
@@ -170,22 +236,30 @@
                     body: JSON.stringify({
                         message: message,
                         signature: signature,
-                        public_key: currentKeys.public_key
+                        public_key: pubToSend
                     })
                 });
                 const data = await response.json();
-
-                document.getElementById('verificationStatus').textContent =
-                    data.is_valid ? 'Signature is valid' : 'Signature is invalid';
+                // Ensure data.is_valid is a boolean and handle potential errors
+                if (data.error) {
+                    document.getElementById('verificationStatus').textContent = 'Error: ' + data.error;
+                } else if (typeof data.is_valid === 'boolean') {
+                    document.getElementById('verificationStatus').textContent =
+                        data.is_valid ? 'Signature is valid' : 'Signature is invalid';
+                } else {
+                    document.getElementById('verificationStatus').textContent = 'Error: Invalid response format from server.';
+                }
                 document.getElementById('verificationResult').style.display = 'block';
             } catch (error) {
-                alert('Error verifying signature: ' + error.message);
+                document.getElementById('verificationStatus').textContent = 'Error verifying signature: ' + error.message;
+                document.getElementById('verificationResult').style.display = 'block';
             }
         }
 
         async function performAttack() {
-            if (!currentKeys) {
-                alert('Please generate keys first');
+            if (!currentKeys || !currentKeys.public_key) {
+                document.getElementById('attackOutput').textContent = 'Error: Please generate keys first or public key is missing!';
+                document.getElementById('attackResult').style.display = 'block';
                 return;
             }
 

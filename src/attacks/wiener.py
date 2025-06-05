@@ -1,59 +1,174 @@
 from sympy import Rational
 from sympy.ntheory.continued_fraction import continued_fraction_convergents
 from sympy.ntheory.primetest import isprime
+import logging
+import time
+from typing import Dict, Union, Tuple
+import gmpy2
 
-def wiener_attack(public_key):
+logger = logging.getLogger(__name__)
+
+def wiener_attack(public_key: Union[Dict, Tuple]) -> Dict:
     """
-    Thực hiện tấn công Wiener trên RSA
-    public_key: tuple (n, e) với n là modulus và e là public exponent
+    Perform Wiener's attack on RSA.
+    
+    This attack exploits the fact that if d < (1/3) * n^(1/4), then the private key d
+    can be recovered from the public key (n, e) using continued fractions.
+    
+    Args:
+        public_key: Either a dict containing 'n' and 'e' or a tuple (n, e)
+        
+    Returns:
+        Dict containing:
+            - success: bool indicating if attack was successful
+            - private_key: dict containing recovered private key components
+            - factors: dict containing prime factors p and q
+            - message: str describing the result
+            - execution_time: float indicating time taken
     """
-    n = int(public_key[0])  # Chuyển đổi sang int
-    e = int(public_key[1])  # Chuyển đổi sang int
+    start_time = time.time()
     
-    # Tìm các convergent của e/n
-    convergents = list(continued_fraction_convergents(Rational(e, n)))
-    
-    for convergent in convergents:
-        # convergent có thể là Rational hoặc tuple
-        if hasattr(convergent, 'numerator') and hasattr(convergent, 'denominator'):
-            k = int(convergent.numerator)  # Chuyển đổi sang int
-            d = int(convergent.denominator)  # Chuyển đổi sang int
+    try:
+        # Extract n and e from public key
+        if isinstance(public_key, dict):
+            n = int(public_key['n'])
+            e = int(public_key['e'])
         else:
-            k, d = map(int, convergent)
-        if k == 0:
-            continue
+            n = int(public_key[0])
+            e = int(public_key[1])
             
-        # Kiểm tra xem d có phải là private key không
-        if d > 0 and (e * d - 1) % k == 0:
-            phi = (e * d - 1) // k
+        logger.info(f"Starting Wiener attack on RSA key with n={n}, e={e}")
+        
+        # Check if key is vulnerable to Wiener attack
+        if d := _check_wiener_vulnerability(n, e):
+            logger.info("Key is vulnerable to Wiener attack")
+            return {
+                'success': True,
+                'private_key': {
+                    'n': n,
+                    'd': d
+                },
+                'factors': _find_factors(n, e, d),
+                'message': 'Wiener attack successful',
+                'execution_time': time.time() - start_time
+            }
             
-            # Giải phương trình bậc 2 để tìm p và q
-            # x^2 - (n - phi + 1)x + n = 0
-            b = n - phi + 1
-            c = n
-            
-            # Tính delta = b^2 - 4c
-            delta = b * b - 4 * c
-            
-            if delta >= 0:
-                # Tính nghiệm
-                p = (b + int(delta ** 0.5)) // 2
-                q = (b - int(delta ** 0.5)) // 2
+        # If not vulnerable, try continued fraction method
+        convergents = list(continued_fraction_convergents(Rational(e, n)))
+        logger.info(f"Generated {len(convergents)} convergents")
+        
+        for convergent in convergents:
+            # Extract k and d from convergent
+            if hasattr(convergent, 'numerator') and hasattr(convergent, 'denominator'):
+                k = int(convergent.numerator)
+                d = int(convergent.denominator)
+            else:
+                k, d = map(int, convergent)
                 
-                if p * q == n and isprime(p) and isprime(q):
+            if k == 0:
+                continue
+                
+            # Check if d is a valid private key
+            if d > 0 and (e * d - 1) % k == 0:
+                phi = (e * d - 1) // k
+                
+                # Solve quadratic equation to find p and q
+                factors = _find_factors(n, e, d)
+                if factors:
+                    logger.info("Found private key and factors")
                     return {
                         'success': True,
                         'private_key': {
                             'n': n,
                             'd': d
                         },
-                        'factors': {
-                            'p': p,
-                            'q': q
-                        }
+                        'factors': factors,
+                        'message': 'Wiener attack successful',
+                        'execution_time': time.time() - start_time
                     }
+        
+        logger.info("Wiener attack failed - no valid private key found")
+        return {
+            'success': False,
+            'message': 'Wiener attack failed - no valid private key found',
+            'execution_time': time.time() - start_time
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in Wiener attack: {str(e)}")
+        return {
+            'success': False,
+            'message': f'Error in Wiener attack: {str(e)}',
+            'execution_time': time.time() - start_time
+        }
+
+def _check_wiener_vulnerability(n: int, e: int) -> Union[int, None]:
+    """
+    Check if RSA key is vulnerable to Wiener attack using the condition d < (1/3) * n^(1/4).
     
-    return {
-        'success': False,
-        'message': 'Wiener attack failed'
-    } 
+    Args:
+        n: RSA modulus
+        e: Public exponent
+        
+    Returns:
+        Private key d if vulnerable, None otherwise
+    """
+    try:
+        # Calculate upper bound for d
+        d_bound = int((1/3) * gmpy2.root(n, 4)[0])
+        
+        # Try to find d using continued fractions
+        convergents = list(continued_fraction_convergents(Rational(e, n)))
+        
+        for convergent in convergents[:10]:  # Check first 10 convergents
+            if hasattr(convergent, 'denominator'):
+                d = int(convergent.denominator)
+                if d < d_bound and (e * d - 1) % convergent.numerator == 0:
+                    return d
+                    
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error checking Wiener vulnerability: {str(e)}")
+        return None
+
+def _find_factors(n: int, e: int, d: int) -> Union[Dict, None]:
+    """
+    Find prime factors p and q of n using the private key d.
+    
+    Args:
+        n: RSA modulus
+        e: Public exponent
+        d: Private key
+        
+    Returns:
+        Dict containing p and q if found, None otherwise
+    """
+    try:
+        # Calculate phi
+        k = (e * d - 1) // n
+        phi = (e * d - 1) // k
+        
+        # Solve quadratic equation: x^2 - (n - phi + 1)x + n = 0
+        b = n - phi + 1
+        c = n
+        
+        # Calculate discriminant
+        delta = b * b - 4 * c
+        
+        if delta >= 0:
+            # Calculate roots
+            p = (b + int(delta ** 0.5)) // 2
+            q = (b - int(delta ** 0.5)) // 2
+            
+            if p * q == n and isprime(p) and isprime(q):
+                return {
+                    'p': p,
+                    'q': q
+                }
+                
+        return None
+        
+    except Exception as e:
+        logger.error(f"Error finding factors: {str(e)}")
+        return None 

@@ -1,7 +1,7 @@
 from Crypto.PublicKey import RSA
 import os
 
-def generate_rsa_keypair(key_size=2048, output_dir='keys'):
+def generate_rsa_keypair(key_size=3072, output_dir='keys'):
     """
     Tạo cặp khóa RSA và trả về dạng dict.
     """
@@ -45,4 +45,4 @@ def generate_rsa_keypair(key_size=2048, output_dir='keys'):
     return public_key, private_key
 
 if __name__ == "__main__":
-    generate_rsa_keypair(2048)  # Bạn có thể đổi thành 1024 hoặc 4096 nếu muốn
+    generate_rsa_keypair(3072)  # Bạn có thể đổi thành 1024 hoặc 4096 nếu muốn
