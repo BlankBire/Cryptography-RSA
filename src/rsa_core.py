@@ -53,16 +53,30 @@ class RSACipher:
             private_key: RSA private key
             key_dir: Directory to save keys
         """
-        os.makedirs(key_dir, exist_ok=True)
-        
-        # Save public key
-        with open(os.path.join(key_dir, 'public_key.pem'), 'wb') as f:
-            f.write(public_key.export_key('PEM'))
-        
-        # Save private key with password protection
-        with open(os.path.join(key_dir, 'private_key.pem'), 'wb') as f:
-            f.write(private_key.export_key('PEM', 
-                   passphrase=get_random_bytes(32)))
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(key_dir, exist_ok=True)
+            
+            # Get full paths for key files
+            public_key_path = os.path.join(key_dir, 'public_key.pem')
+            private_key_path = os.path.join(key_dir, 'private_key.pem')
+            
+            logger.info(f"Saving public key to: {public_key_path}")
+            logger.info(f"Saving private key to: {private_key_path}")
+            
+            # Save public key
+            with open(public_key_path, 'wb') as f:
+                f.write(public_key.export_key('PEM'))
+            logger.info("Public key saved successfully")
+            
+            # Save private key without password protection
+            with open(private_key_path, 'wb') as f:
+                f.write(private_key.export_key('PEM'))
+            logger.info("Private key saved successfully")
+            
+        except Exception as e:
+            logger.error(f"Error saving keys: {str(e)}")
+            raise
 
     @staticmethod
     def load_keys(key_dir: str = 'keys') -> Tuple[RSA.RsaKey, RSA.RsaKey]:
@@ -98,17 +112,17 @@ class RSACipher:
             # Use OAEP padding for better security
             cipher = PKCS1_OAEP.new(public_key, hashAlgo=SHA3_256)
             
-            # Add random padding to prevent timing attacks
-            # Ensure message is bytes, try encoding as UTF-8
+            # Convert message to bytes using UTF-8 encoding
             try:
                 message_bytes = message.encode('utf-8')
             except UnicodeEncodeError:
                 logger.error("Message contains characters that cannot be encoded as UTF-8")
                 raise ValueError("Message contains characters that cannot be encoded as UTF-8")
 
-            padded_message = pad(message_bytes, public_key.size_in_bytes())
-            encrypted = cipher.encrypt(padded_message)
+            # Encrypt the message bytes directly
+            encrypted = cipher.encrypt(message_bytes)
             
+            # Return base64 encoded result
             return base64.b64encode(encrypted).decode()
         except Exception as e:
             logger.error(f"Encryption error: {str(e)}")
@@ -124,10 +138,17 @@ class RSACipher:
             Decrypted message
         """
         try:
+            # Create cipher with OAEP padding
             cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA3_256)
+            
+            # Decode base64 ciphertext
             encrypted = base64.b64decode(ciphertext)
+            
+            # Decrypt the message
             decrypted = cipher.decrypt(encrypted)
-            return unpad(decrypted, private_key.size_in_bytes()).decode()
+            
+            # Convert bytes back to string
+            return decrypted.decode('utf-8')
         except Exception as e:
             logger.error(f"Decryption error: {str(e)}")
             raise

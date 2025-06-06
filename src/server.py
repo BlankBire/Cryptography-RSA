@@ -10,6 +10,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 from datetime import datetime
+from Crypto.PublicKey import RSA
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +27,13 @@ app = Flask(__name__, template_folder='templates')
 CORS(app)
 
 # Initialize RSA cipher
-rsa = RSACipher(key_size=3072)
+rsa = None  # Will be initialized when needed
+
+def get_rsa_cipher():
+    global rsa
+    if rsa is None:
+        rsa = RSACipher(key_size=3072)
+    return rsa
 
 # Configure rate limiting
 limiter = Limiter(
@@ -66,28 +73,38 @@ def home():
 def generate_keys():
     try:
         data = request.get_json()
-        bits = data.get('bits', 3072)
+        if not data or 'bits' not in data:
+            raise ValueError("Missing key size parameter")
         
-        # Generate new key pair
-        public_key, private_key = rsa.generate_keypair(bits)
+        bits = int(data['bits'])
+        public_exponent = 16777217  # Fixed public exponent
+        
+        logger.info(f"Generating keys with size: {bits} bits and public exponent: {public_exponent}")
+        
+        rsa_cipher = get_rsa_cipher()
+        public_key, private_key = rsa_cipher.generate_keypair(bits, public_exponent)
+        
+        # Log actual key size
+        actual_bits = public_key.size_in_bits()
+        logger.info(f"Generated key actual size: {actual_bits} bits")
         
         # Save keys
-        rsa.save_keys(public_key, private_key)
+        rsa_cipher.save_keys(public_key, private_key)
         
-        # Convert keys to dict format for JSON response
+        # Convert keys to dict format
         public_key_dict = {
             'n': str(public_key.n),
             'e': str(public_key.e)
         }
-        
         private_key_dict = {
             'n': str(private_key.n),
+            'e': str(private_key.e),
             'd': str(private_key.d),
             'p': str(private_key.p),
             'q': str(private_key.q)
         }
         
-        logger.info(f"Generated new RSA keypair with {bits} bits")
+        logger.info(f"Key generation successful. Public key n length: {len(str(public_key.n))} digits")
         
         return jsonify({
             'public_key': public_key_dict,
@@ -114,7 +131,8 @@ def sign_message():
         # Convert all key fields to int (handle string from JSON)
         for k in ['n', 'e', 'd', 'p', 'q']:
             private_key[k] = int(private_key[k])
-        signature = rsa.sign_message(message, private_key)
+        rsa_cipher = get_rsa_cipher()
+        signature = rsa_cipher.sign_message(message, private_key)
         logger.info(f"Message signed successfully")
         return jsonify({
             'signature': signature,
@@ -141,7 +159,8 @@ def verify_signature():
         # Convert all key fields to int (handle string from JSON)
         for k in ['n', 'e']:
             public_key[k] = int(public_key[k])
-        is_valid = rsa.verify_signature(message, signature, public_key)
+        rsa_cipher = get_rsa_cipher()
+        is_valid = rsa_cipher.verify_signature(message, signature, public_key)
         logger.info(f"Signature verification result: {is_valid}")
         return jsonify({
             'is_valid': is_valid,
@@ -185,6 +204,104 @@ def perform_attack():
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in perform_attack: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/encrypt', methods=['POST'])
+@limiter.limit("100 per minute")
+@log_request
+def encrypt_message():
+    try:
+        data = request.get_json()
+        if not data or 'message' not in data or 'public_key' not in data:
+            raise ValueError("Missing required fields")
+        message = data['message']
+        public_key_dict = data['public_key']
+        
+        # Convert all key fields to int (handle string from JSON)
+        for k in ['n', 'e']:
+            public_key_dict[k] = int(public_key_dict[k])
+            
+        # Create RSA key object from components
+        public_key = RSA.construct((
+            public_key_dict['n'],
+            public_key_dict['e']
+        ))
+        
+        rsa_cipher = get_rsa_cipher()
+        encrypted = rsa_cipher.encrypt_message(message, public_key)
+        logger.info(f"Message encrypted successfully")
+        return jsonify({
+            'encrypted': encrypted,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in encrypt_message: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in encrypt_message: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/decrypt', methods=['POST'])
+@limiter.limit("100 per minute")
+@log_request
+def decrypt_message():
+    try:
+        data = request.get_json()
+        if not data or 'encrypted' not in data or 'private_key' not in data:
+            raise ValueError("Missing required fields")
+        encrypted = data['encrypted']
+        private_key_dict = data['private_key']
+        
+        # Convert all key fields to int (handle string from JSON)
+        for k in ['n', 'e', 'd', 'p', 'q']:
+            private_key_dict[k] = int(private_key_dict[k])
+            
+        # Create RSA key object from components
+        private_key = RSA.construct((
+            private_key_dict['n'],
+            private_key_dict['e'],
+            private_key_dict['d'],
+            private_key_dict['p'],
+            private_key_dict['q']
+        ))
+        
+        rsa_cipher = get_rsa_cipher()
+        decrypted = rsa_cipher.decrypt_message(encrypted, private_key)
+        logger.info(f"Message decrypted successfully")
+        return jsonify({
+            'decrypted': decrypted,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in decrypt_message: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in decrypt_message: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/save-ciphertext', methods=['POST'])
+@limiter.limit("100 per minute")
+@log_request
+def save_ciphertext():
+    try:
+        data = request.get_json()
+        if not data or 'ciphertext' not in data:
+            raise ValueError("Missing ciphertext data")
+        
+        ciphertext = data['ciphertext']
+        ciphertext_path = os.path.join('data', 'ciphertext_samples.txt')
+        
+        # Save ciphertext to file
+        with open(ciphertext_path, 'w') as f:
+            f.write(ciphertext)
+        
+        logger.info(f"Ciphertext saved to {ciphertext_path}")
+        return jsonify({
+            'success': True,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Error saving ciphertext: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':

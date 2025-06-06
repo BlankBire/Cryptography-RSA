@@ -22,86 +22,129 @@
 </head>
 
 <body>
-    <div class="container mt-5">
-        <h1 class="mb-4">RSA Demo</h1>
+    <div class="container">
+        <h1 class="text-center mb-4">RSA Cryptanalysis Tool</h1>
 
-        <!-- Key Generation -->
+        <!-- Key Generation Section -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Key Generation</h5>
+                <h2 class="h5 mb-0">Key Generation</h2>
             </div>
             <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Key Size (bits)</label>
-                    <input type="number" class="form-control" id="keySize" value="3072">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="keySize">Key Size (bits)</label>
+                            <select class="form-control" id="keySize">
+                                <option value="2048">2048 bits</option>
+                                <option value="3072">3072 bits</option>
+                                <option value="4096">4096 bits</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Public Exponent</label>
+                            <div class="form-control bg-light">
+                                16777217
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button class="btn btn-primary" onclick="generateKeys()">Generate Keys</button>
-                <div id="keyResult" class="result-box" style="display: none;">
-                    <h6>Public Key:</h6>
-                    <pre id="publicKey"></pre>
-                    <h6>Private Key:</h6>
-                    <pre id="privateKey"></pre>
+                <button class="btn btn-primary" onclick="generateKeys()">Generate New Keys</button>
+                <div id="keyGenerationResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Generated Keys:</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="h6">Public Key:</h4>
+                            <pre id="publicKey" class="bg-light p-2"></pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h4 class="h6">Private Key:</h4>
+                            <pre id="privateKey" class="bg-light p-2"></pre>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Signing -->
+        <!-- Encryption Section -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Sign Message</h5>
+                <h2 class="h5 mb-0">Encryption</h2>
             </div>
             <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Message</label>
-                    <input type="text" class="form-control" id="messageToSign">
+                <div class="form-group">
+                    <label for="messageToEncrypt">Message to Encrypt</label>
+                    <textarea class="form-control" id="messageToEncrypt" rows="3"
+                        placeholder="Enter message to encrypt..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="encryptMessage()">Encrypt</button>
+                <div id="encryptionResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Encrypted Message:</h3>
+                    <pre id="encryptedMessage" class="bg-light p-2"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decryption Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Decryption</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="messageToDecrypt">Encrypted Message</label>
+                    <textarea class="form-control" id="messageToDecrypt" rows="3"
+                        placeholder="Enter encrypted message (Base64)..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="decryptMessage()">Decrypt</button>
+                <div id="decryptionResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Decrypted Message:</h3>
+                    <pre id="decryptedMessage" class="bg-light p-2"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signing Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Message Signing</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="messageToSign">Message to Sign</label>
+                    <textarea class="form-control" id="messageToSign" rows="3"
+                        placeholder="Enter message to sign..."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="signMessage()">Sign Message</button>
-                <div id="signatureResult" class="result-box" style="display: none;">
-                    <h6>Signature:</h6>
-                    <pre id="signature"></pre>
+                <div id="signingResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Signature:</h3>
+                    <pre id="signature" class="bg-light p-2"></pre>
                 </div>
             </div>
         </div>
 
-        <!-- Verification -->
+        <!-- Verification Section -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Verify Signature</h5>
+                <h2 class="h5 mb-0">Signature Verification</h2>
             </div>
             <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Message</label>
-                    <input type="text" class="form-control" id="messageToVerify">
+                <div class="form-group">
+                    <label for="messageToVerify">Original Message</label>
+                    <textarea class="form-control" id="messageToVerify" rows="3"
+                        placeholder="Enter original message..."></textarea>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Signature</label>
-                    <input type="text" class="form-control" id="signatureToVerify">
+                <div class="form-group">
+                    <label for="signatureToVerify">Signature</label>
+                    <textarea class="form-control" id="signatureToVerify" rows="3"
+                        placeholder="Enter signature (Base64)..."></textarea>
                 </div>
                 <button class="btn btn-primary" onclick="verifySignature()">Verify Signature</button>
-                <div id="verificationResult" class="result-box" style="display: none;">
-                    <h6>Result:</h6>
-                    <pre id="verificationStatus"></pre>
-                </div>
-            </div>
-        </div>
-
-        <!-- Attack -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Attack</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label">Attack Type</label>
-                    <select class="form-select" id="attackType">
-                        <option value="wiener">Wiener Attack</option>
-                        <option value="hastad">Hastad Attack</option>
-                    </select>
-                </div>
-                <button class="btn btn-danger" onclick="performAttack()">Perform Attack</button>
-                <div id="attackResult" class="result-box" style="display: none;">
-                    <h6>Attack Result:</h6>
-                    <pre id="attackOutput"></pre>
+                <div id="verificationResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Verification Result:</h3>
+                    <pre id="verificationStatus" class="bg-light p-2"></pre>
                 </div>
             </div>
         </div>
@@ -139,7 +182,7 @@
 
                 document.getElementById('publicKey').textContent = JSON.stringify(data.public_key, null, 2);
                 document.getElementById('privateKey').textContent = JSON.stringify(data.private_key, null, 2);
-                document.getElementById('keyResult').style.display = 'block';
+                document.getElementById('keyGenerationResult').style.display = 'block';
             } catch (error) {
                 alert('Error generating keys: ' + error.message);
             }
@@ -148,7 +191,7 @@
         async function signMessage() {
             if (!currentKeys || !currentKeys.private_key) {
                 document.getElementById('signature').textContent = 'Error: Please generate keys first or private key is missing!';
-                document.getElementById('signatureResult').style.display = 'block';
+                document.getElementById('signingResult').style.display = 'block';
                 return;
             }
 
@@ -186,10 +229,10 @@
                 } else {
                     document.getElementById('signature').textContent = data.signature;
                 }
-                document.getElementById('signatureResult').style.display = 'block';
+                document.getElementById('signingResult').style.display = 'block';
             } catch (error) {
                 document.getElementById('signature').textContent = 'Error signing message: ' + error.message;
-                document.getElementById('signatureResult').style.display = 'block';
+                document.getElementById('signingResult').style.display = 'block';
             }
         }
 
@@ -256,29 +299,114 @@
             }
         }
 
-        async function performAttack() {
+        async function encryptMessage() {
             if (!currentKeys || !currentKeys.public_key) {
-                document.getElementById('attackOutput').textContent = 'Error: Please generate keys first or public key is missing!';
-                document.getElementById('attackResult').style.display = 'block';
+                document.getElementById('encryptedMessage').textContent = 'Error: Please generate keys first or public key is missing!';
+                document.getElementById('encryptionResult').style.display = 'block';
                 return;
             }
 
-            const attackType = document.getElementById('attackType').value;
+            const message = document.getElementById('messageToEncrypt').value;
+            if (!message) {
+                alert('Please enter a message to encrypt!');
+                return;
+            }
+
+            const pub = currentKeys.public_key;
+            if (!pub || !pub.n || !pub.e) {
+                alert('Public key is invalid or missing fields!');
+                return;
+            }
+
+            const pubToSend = {
+                n: pub.n.toString(),
+                e: pub.e.toString()
+            };
+
             try {
-                const response = await fetch(`${API_URL}/attack`, {
+                const response = await fetch(`${API_URL}/encrypt`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        attack_type: attackType,
-                        public_key: currentKeys.public_key
+                        message: message,
+                        public_key: pubToSend
                     })
                 });
                 const data = await response.json();
-
-                document.getElementById('attackOutput').textContent = JSON.stringify(data, null, 2);
-                document.getElementById('attackResult').style.display = 'block';
+                if (data.error) {
+                    document.getElementById('encryptedMessage').textContent = 'Error: ' + data.error;
+                } else {
+                    document.getElementById('encryptedMessage').textContent = data.encrypted;
+                    // Save ciphertext to file
+                    try {
+                        const saveResponse = await fetch(`${API_URL}/save-ciphertext`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                ciphertext: data.encrypted
+                            })
+                        });
+                        const saveData = await saveResponse.json();
+                        if (saveData.success) {
+                            console.log('Ciphertext saved to file successfully');
+                        }
+                    } catch (saveError) {
+                        console.error('Error saving ciphertext:', saveError);
+                    }
+                }
+                document.getElementById('encryptionResult').style.display = 'block';
             } catch (error) {
-                alert('Error performing attack: ' + error.message);
+                document.getElementById('encryptedMessage').textContent = 'Error encrypting message: ' + error.message;
+                document.getElementById('encryptionResult').style.display = 'block';
+            }
+        }
+
+        async function decryptMessage() {
+            if (!currentKeys || !currentKeys.private_key) {
+                document.getElementById('decryptedMessage').textContent = 'Error: Please generate keys first or private key is missing!';
+                document.getElementById('decryptionResult').style.display = 'block';
+                return;
+            }
+
+            const encrypted = document.getElementById('messageToDecrypt').value.trim();
+            if (!encrypted) {
+                alert('Please enter an encrypted message!');
+                return;
+            }
+
+            const priv = currentKeys.private_key;
+            if (!priv || !priv.n || !priv.d || !priv.p || !priv.q) {
+                alert('Private key is invalid or missing fields!');
+                return;
+            }
+
+            const privToSend = {
+                n: priv.n.toString(),
+                e: priv.e.toString(),
+                d: priv.d.toString(),
+                p: priv.p.toString(),
+                q: priv.q.toString()
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/decrypt`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        encrypted: encrypted,
+                        private_key: privToSend
+                    })
+                });
+                const data = await response.json();
+                if (data.error) {
+                    document.getElementById('decryptedMessage').textContent = 'Error: ' + data.error;
+                } else {
+                    document.getElementById('decryptedMessage').textContent = data.decrypted;
+                }
+                document.getElementById('decryptionResult').style.display = 'block';
+            } catch (error) {
+                document.getElementById('decryptedMessage').textContent = 'Error decrypting message: ' + error.message;
+                document.getElementById('decryptionResult').style.display = 'block';
             }
         }
     </script>
