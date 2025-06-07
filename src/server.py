@@ -11,6 +11,7 @@ from flask_limiter.util import get_remote_address
 import os
 from datetime import datetime
 from Crypto.PublicKey import RSA
+import base64
 
 # Configure logging
 logging.basicConfig(
@@ -364,6 +365,57 @@ def timing_attack():
     except Exception as e:
         logger.error(f"Error in timing_attack: {str(e)}")
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
+
+@app.route('/api/cca-attack', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def cca_attack():
+    try:
+        data = request.get_json()
+        if not data or 'ciphertext' not in data or 'private_key' not in data:
+            raise ValueError("Missing required fields: ciphertext and private_key")
+            
+        ciphertext_b64 = data.get('ciphertext')
+        private_key_dict = data.get('private_key')
+
+        if not ciphertext_b64 or not private_key_dict:
+            raise ValueError("Missing ciphertext or private key")
+
+        # Convert private key components to int
+        try:
+            private_key = RSA.construct((
+                int(private_key_dict['n']),
+                int(private_key_dict['e']),
+                int(private_key_dict['d']),
+                int(private_key_dict['p']),
+                int(private_key_dict['q'])
+            ))
+        except KeyError as ke:
+            raise ValueError(f"Missing private key component: {ke}")
+        except ValueError as ve:
+            raise ValueError(f"Invalid private key component: {ve}")
+            
+        # Decode Base64 ciphertext to bytes, then convert to hex string
+        try:
+            ciphertext_bytes = base64.b64decode(ciphertext_b64)
+            ciphertext_hex = ciphertext_bytes.hex()
+        except Exception as e:
+            raise ValueError(f"Invalid Base64 ciphertext: {e}")
+
+        from attacks.cca_attack import padding_oracle_attack
+        result = padding_oracle_attack(private_key, ciphertext_hex)
+        
+        logger.info(f"CCA attack performed successfully")
+        return jsonify({
+            'result': result,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in cca_attack: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in cca_attack: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     # Create necessary directories

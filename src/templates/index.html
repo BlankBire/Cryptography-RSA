@@ -270,6 +270,56 @@
                 </div>
             </div>
         </div>
+
+        <!-- CCA Attack Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Chosen Ciphertext Attack (CCA) - Padding Oracle</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="ccaN">Modulus (n)</label>
+                            <input type="text" class="form-control" id="ccaN" placeholder="Enter modulus...">
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="ccaE">Public Exponent (e)</label>
+                            <input type="text" class="form-control" id="ccaE" placeholder="Enter public exponent...">
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="ccaCiphertext">Target Ciphertext</label>
+                            <textarea class="form-control" id="ccaCiphertext" rows="3"
+                                placeholder="Enter ciphertext to decrypt..."></textarea>
+                        </div>
+                        <button class="btn btn-primary mt-3" onclick="runCCAAttack()">Run CCA Attack</button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="method-descriptions">
+                            <h6>About Chosen Ciphertext Attack (CCA) - Padding Oracle:</h6>
+                            <p>A CCA attack exploits a decryption oracle that leaks information about the validity of
+                                padding.
+                                By sending specially crafted ciphertexts and observing whether the decryption service
+                                returns a valid padding error or not,
+                                an attacker can incrementally decrypt the original message.</p>
+                            <p>This simulation focuses on a simplified PKCS#1 v1.5 Padding Oracle Attack.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="ccaLoading" class="loading mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Running CCA attack...</p>
+                </div>
+                <div id="ccaResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">CCA Attack Results:</h3>
+                    <div id="ccaOutput" class="bg-light p-2"></div>
+                    <h6 class="h6 mt-3">Attack Log:</h6>
+                    <div id="ccaAttackLog" class="bg-light p-2" style="max-height: 300px; overflow-y: scroll;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -317,10 +367,16 @@
                     document.getElementById('publicKey').textContent = JSON.stringify(data.public_key, null, 2);
                     document.getElementById('privateKey').textContent = JSON.stringify(data.private_key, null, 2);
 
-                    // Automatically fill in factorization n and timing attack n, e
+                    // Update Factorization fields
                     document.getElementById('nToFactor').value = data.public_key.n;
+
+                    // Update Timing Attack fields
                     document.getElementById('timingN').value = data.public_key.n;
                     document.getElementById('timingE').value = data.public_key.e;
+
+                    // Update CCA Attack fields
+                    document.getElementById('ccaN').value = data.public_key.n;
+                    document.getElementById('ccaE').value = data.public_key.e;
 
                 } else if (data.error) {
                     document.getElementById('keyGenerationResult').style.display = 'block';
@@ -714,6 +770,64 @@
                     <p class="text-danger">Error: ${error.message}</p>
                 `
             }
+        }
+
+        async function runCCAAttack() {
+            if (!currentKeys || !currentKeys.private_key) {
+                alert('Please generate keys first!');
+                return;
+            }
+
+            const ciphertext = document.getElementById('ccaCiphertext').value.trim();
+            if (!ciphertext) {
+                alert('Please enter a ciphertext!');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('ccaLoading').style.display = 'block';
+            document.getElementById('ccaResult').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/cca-attack`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ciphertext: ciphertext,
+                        private_key: currentKeys.private_key
+                    })
+                });
+
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('ccaLoading').style.display = 'none';
+                document.getElementById('ccaResult').style.display = 'block';
+
+                if (data.error) {
+                    document.getElementById('ccaOutput').textContent = `Error: ${data.error}`;
+                    document.getElementById('ccaAttackLog').textContent = '';
+                } else {
+                    document.getElementById('ccaOutput').textContent = JSON.stringify(data.result, null, 2);
+                    if (data.result.attack_log) {
+                        // Format the attack_log for better readability
+                        const formattedLog = data.result.attack_log.map(entry => {
+                            return JSON.stringify(entry, null, 2);
+                        }).join('\n\n'); // Join with double newline for separation
+                        document.getElementById('ccaAttackLog').textContent = formattedLog;
+                    }
+                }
+            } catch (error) {
+                document.getElementById('ccaLoading').style.display = 'none';
+                document.getElementById('ccaResult').style.display = 'block';
+                document.getElementById('ccaOutput').textContent = `Error: ${error.message}`;
+                document.getElementById('ccaAttackLog').textContent = '';
+            }
+        }
+
+        // Helper function to convert hex to Base64 (for display)
+        function hexToBase64(hex) {
+            return btoa(String.fromCharCode.apply(null, hex.match(/\w{2}/g).map(function (a) { return parseInt(a, 16); })));
         }
     </script>
 </body>

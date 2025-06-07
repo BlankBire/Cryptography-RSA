@@ -1,5 +1,5 @@
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Cipher import PKCS1_OAEP, PKCS1_v1_5
 from Crypto.Signature import pkcs1_15
 from Crypto.Hash import SHA256, SHA3_256
 from Crypto.Util.Padding import pad, unpad
@@ -101,7 +101,7 @@ class RSACipher:
 
     def encrypt_message(self, message: str, public_key: RSA.RsaKey) -> str:
         """
-        Encrypt message using RSA-OAEP.
+        Encrypt message using RSA PKCS#1 v1.5 padding.
         Args:
             message: Message to encrypt
             public_key: RSA public key
@@ -109,8 +109,8 @@ class RSACipher:
             Base64 encoded encrypted message
         """
         try:
-            # Use OAEP padding for better security
-            cipher = PKCS1_OAEP.new(public_key, hashAlgo=SHA3_256)
+            # Use PKCS#1 v1.5 padding for encryption
+            cipher = PKCS1_v1_5.new(public_key)
             
             # Convert message to bytes using UTF-8 encoding
             try:
@@ -130,7 +130,7 @@ class RSACipher:
 
     def decrypt_message(self, ciphertext: str, private_key: RSA.RsaKey) -> str:
         """
-        Decrypt message using RSA-OAEP.
+        Decrypt message using RSA PKCS#1 v1.5 padding.
         Args:
             ciphertext: Base64 encoded encrypted message
             private_key: RSA private key
@@ -138,14 +138,14 @@ class RSACipher:
             Decrypted message
         """
         try:
-            # Create cipher with OAEP padding
-            cipher = PKCS1_OAEP.new(private_key, hashAlgo=SHA3_256)
+            # Create cipher with PKCS#1 v1.5 padding
+            cipher = PKCS1_v1_5.new(private_key)
             
             # Decode base64 ciphertext
             encrypted = base64.b64decode(ciphertext)
             
             # Decrypt the message
-            decrypted = cipher.decrypt(encrypted)
+            decrypted = cipher.decrypt(encrypted, None) # None sentinel for PKCS1_v1_5 decryption
             
             # Convert bytes back to string
             return decrypted.decode('utf-8')
