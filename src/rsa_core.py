@@ -14,11 +14,11 @@ import base64
 logger = logging.getLogger(__name__)
 
 class RSACipher:
-    def __init__(self, key_size: int = 2048):
+    def __init__(self, key_size: int = 3072):
         """
         Initialize RSA cipher with specified key size.
         Args:
-            key_size: Size of RSA key in bits (default: 2048)
+            key_size: Size of RSA key in bits (default: 3072)
         """
         self.key_size = key_size
         self._validate_key_size()
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     
     # Create RSA cipher instance
-    rsa = RSACipher(key_size=2048)
+    rsa = RSACipher(key_size=3072)
     
     # Generate new key pair
     public_key, private_key = rsa.generate_keypair()

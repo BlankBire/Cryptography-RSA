@@ -1,9 +1,0 @@
-=== Trial Division ===
-Success: n = 83 * 97
-
-=== Fermat ===
-Success: n = 83 * 97
-
-=== Pollard's Rho ===
-Success: n = 97 * 83
-

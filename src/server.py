@@ -304,15 +304,39 @@ def save_ciphertext():
         logger.error(f"Error saving ciphertext: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/factorization')
+def factorization_page():
+    return render_template('factorization.html')
+
+@app.route('/api/factorize', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def factorize():
+    try:
+        data = request.get_json()
+        if not data or 'n' not in data:
+            raise ValueError("Missing required field 'n'")
+            
+        n = int(data['n'])
+        method = data.get('method', 'auto')
+        
+        from attacks.factorization import factorize
+        result = factorize(n, method)
+        
+        logger.info(f"Factorization completed for n={n} using method={method}")
+        return jsonify(result)
+        
+    except ValueError as ve:
+        logger.error(f"Validation error in factorize: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in factorize: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     # Create necessary directories
-    os.makedirs('logs', exist_ok=True)
     os.makedirs('keys', exist_ok=True)
+    os.makedirs('results', exist_ok=True)
     
-    # Run the server
-    app.run(
-        host='0.0.0.0',
-        port=4444,
-        debug=False,  # Disable debug mode in production
-        #ssl_context='adhoc'  # Enable HTTPS
-    ) 
+    # Run the Flask app
+    app.run(host='0.0.0.0', port=4444, debug=True) 

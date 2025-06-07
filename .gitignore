@@ -6,3 +6,4 @@ env/
 private_key.pem
 public_key.pem
 server.log
+ciphertext_samples.txt

@@ -148,6 +148,72 @@
                 </div>
             </div>
         </div>
+
+        <!-- Factorization Attack Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Factorization Attack</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="nToFactor">Modulus (n)</label>
+                            <input type="text" class="form-control" id="nToFactor"
+                                placeholder="Enter modulus to factor...">
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="factorMethod">Factorization Method</label>
+                            <select class="form-control" id="factorMethod">
+                                <option value="auto">Auto (Recommended)</option>
+                                <option value="trial">Trial Division</option>
+                                <option value="fermat">Fermat</option>
+                                <option value="pollard">Pollard's Rho</option>
+                                <option value="quadratic">Quadratic Sieve</option>
+                                <option value="ecm">Elliptic Curve Method</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary mt-3" onclick="factorizeNumber()">Factorize</button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="method-descriptions">
+                            <h6>Method Descriptions:</h6>
+                            <div class="method-card">
+                                <strong>Trial Division:</strong>
+                                <p>Simple method that tries dividing by all numbers up to sqrt(n). Good for small
+                                    numbers.</p>
+                            </div>
+                            <div class="method-card">
+                                <strong>Fermat:</strong>
+                                <p>Uses the difference of squares. Effective when p and q are close together.</p>
+                            </div>
+                            <div class="method-card">
+                                <strong>Pollard's Rho:</strong>
+                                <p>Uses a cycle-finding algorithm. Good for medium-sized numbers.</p>
+                            </div>
+                            <div class="method-card">
+                                <strong>Quadratic Sieve:</strong>
+                                <p>Advanced method using smooth numbers. Good for large numbers.</p>
+                            </div>
+                            <div class="method-card">
+                                <strong>Elliptic Curve Method:</strong>
+                                <p>Uses elliptic curves. Effective when one factor is small.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="loading mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Factoring in progress...</p>
+                </div>
+                <div id="factorizationResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Factorization Result:</h3>
+                    <pre id="factorizationOutput" class="bg-light p-2"></pre>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -407,6 +473,61 @@
             } catch (error) {
                 document.getElementById('decryptedMessage').textContent = 'Error decrypting message: ' + error.message;
                 document.getElementById('decryptionResult').style.display = 'block';
+            }
+        }
+
+        async function factorizeNumber() {
+            const n = document.getElementById('nToFactor').value;
+            const method = document.getElementById('factorMethod').value;
+
+            if (!n) {
+                alert('Please enter a modulus to factor!');
+                return;
+            }
+
+            // Show loading
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('factorizationResult').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/factorize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ n, method })
+                });
+
+                const data = await response.json();
+
+                // Hide loading
+                document.querySelector('.loading').style.display = 'none';
+                document.getElementById('factorizationResult').style.display = 'block';
+
+                // Display result
+                const resultContent = document.getElementById('factorizationOutput');
+                if (data.success) {
+                    resultContent.innerHTML = `
+                        <p class="text-success">Factorization successful!</p>
+                        <p>Method used: ${data.method}</p>
+                        <p>Factors:</p>
+                        <ul>
+                            <li>p = ${data.factors.p}</li>
+                            <li>q = ${data.factors.q}</li>
+                        </ul>
+                        <p>Execution time: ${data.execution_time.toFixed(3)} seconds</p>
+                    `;
+                } else {
+                    resultContent.innerHTML = `
+                        <p class="text-danger">Factorization failed</p>
+                        <p>${data.message}</p>
+                        <p>Execution time: ${data.execution_time.toFixed(3)} seconds</p>
+                    `;
+                }
+            } catch (error) {
+                document.querySelector('.loading').style.display = 'none';
+                document.getElementById('factorizationResult').style.display = 'block';
+                document.getElementById('factorizationOutput').innerHTML = `
+                    <p class="text-danger">Error: ${error.message}</p>
+                `;
             }
         }
     </script>
