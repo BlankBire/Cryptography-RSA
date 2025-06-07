@@ -5,6 +5,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto.Hash import SHA256
 from Crypto import Random
+from math import sqrt
+import statistics
 
 def simulate_decryption_time(private_key, ciphertext):
     """
@@ -22,13 +24,13 @@ def simulate_decryption_time(private_key, ciphertext):
         # Xác định độ lớn của vòng lặp bận rộn dựa trên bit của 'd'
         delay_iterations = 0
         if (private_key.d >> 4) & 1: # Kiểm tra bit thứ 5 (0-indexed) của d
-            delay_iterations = 100000000 # Tăng số lần lặp cho độ trễ 1 giây (1000ms)
+            delay_iterations = 1000 # Tăng số lần lặp cho độ trễ 1 giây (1000ms)
         else:
-            delay_iterations = 50000000 # Tăng số lần lặp cho độ trễ 0.5 giây (500ms)
+            delay_iterations = 500 # Tăng số lần lặp cho độ trễ 0.5 giây (500ms)
 
         # Vòng lặp bận rộn để tạo độ trễ nhân tạo
         for _ in range(delay_iterations):
-            pass # Không làm gì cả, chỉ tiêu tốn chu kỳ CPU
+            x = 1 + 1 # Thực hiện một phép tính có thật để CPU thực sự bận
 
     cipher.decrypt(ciphertext, sentinel)
     end = time.perf_counter()
@@ -113,11 +115,17 @@ def simulate_timing_attack(n: int, e: int, trials: int = 10) -> Dict:
         # --- Logic suy luận bit d --- #
         inferred_d_bit_5 = None
         inference_correct = False
+        durations = [r['duration'] for r in result['results']]
         
         # Ngưỡng giữa hai mức độ trễ của chúng ta (0.5s và 0.25s)
         # base_decryption_time là rất nhỏ, nên có thể bỏ qua trong ngưỡng.
         # Midpoint = (0.5 + 0.25) / 2 = 0.375
-        inference_threshold = 0.375 # Đây là một ngưỡng đơn giản cho demo
+        median_time = statistics.median(durations)
+        group1 = [t for t in durations if t < median_time]
+        group2 = [t for t in durations if t >= median_time]
+        avg1 = sum(group1) / len(group1)
+        avg2 = sum(group2) / len(group2)
+        inference_threshold = (avg1 + avg2) / 2 # Đây là một ngưỡng đơn giản cho demo
         
         if result['statistics']['average_time'] >= inference_threshold:
             inferred_d_bit_5 = 1
