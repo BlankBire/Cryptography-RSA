@@ -1,3 +1,0 @@
-=== CCA Attack Simulation ===
-Original plaintext: b'Test message for CCA attack'
-CCA attack valid modified ciphertexts count: 0
