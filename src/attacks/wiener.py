@@ -1,5 +1,5 @@
 from sympy import Rational
-from sympy.ntheory.continued_fraction import continued_fraction_convergents
+from sympy.ntheory.continued_fraction import continued_fraction_convergents, continued_fraction
 from sympy.ntheory.primetest import isprime
 import logging
 import time
@@ -54,7 +54,8 @@ def wiener_attack(public_key: Union[Dict, Tuple]) -> Dict:
             }
             
         # If not vulnerable, try continued fraction method
-        convergents = list(continued_fraction_convergents(Rational(e, n)))
+        cf = continued_fraction(Rational(e, n))
+        convergents = list(continued_fraction_convergents(cf))
         logger.info(f"Generated {len(convergents)} convergents")
         
         for convergent in convergents:
@@ -65,27 +66,26 @@ def wiener_attack(public_key: Union[Dict, Tuple]) -> Dict:
             else:
                 k, d = map(int, convergent)
                 
-            if k == 0:
+            if k == 0 or (e * d - 1) % k != 0:
                 continue
                 
             # Check if d is a valid private key
-            if d > 0 and (e * d - 1) % k == 0:
-                phi = (e * d - 1) // k
+            phi = (e * d - 1) // k
+            factors = _find_factors(n, phi)
                 
-                # Solve quadratic equation to find p and q
-                factors = _find_factors(n, e, d)
-                if factors:
-                    logger.info("Found private key and factors")
-                    return {
-                        'success': True,
-                        'private_key': {
-                            'n': n,
-                            'd': d
-                        },
-                        'factors': factors,
-                        'message': 'Wiener attack successful',
-                        'execution_time': time.time() - start_time
-                    }
+            # Solve quadratic equation to find p and q
+            if factors:
+                logger.info("Found private key and factors")
+                return {
+                    'success': True,
+                    'private_key': {
+                        'n': n,
+                        'd': d
+                    },
+                    'factors': factors,
+                    'message': 'Wiener attack successful',
+                    'execution_time': time.time() - start_time
+                }
         
         logger.info("Wiener attack failed - no valid private key found")
         return {
@@ -132,7 +132,7 @@ def _check_wiener_vulnerability(n: int, e: int) -> Union[int, None]:
         logger.error(f"Error checking Wiener vulnerability: {str(e)}")
         return None
 
-def _find_factors(n: int, e: int, d: int) -> Union[Dict, None]:
+def _find_factors(n: int, phi: int) -> Union[Dict, None]:
     """
     Find prime factors p and q of n using the private key d.
     
@@ -145,30 +145,23 @@ def _find_factors(n: int, e: int, d: int) -> Union[Dict, None]:
         Dict containing p and q if found, None otherwise
     """
     try:
-        # Calculate phi
-        k = (e * d - 1) // n
-        phi = (e * d - 1) // k
-        
-        # Solve quadratic equation: x^2 - (n - phi + 1)x + n = 0
-        b = n - phi + 1
+        a = 1
+        b = -(n - phi + 1)
         c = n
-        
-        # Calculate discriminant
-        delta = b * b - 4 * c
-        
-        if delta >= 0:
-            # Calculate roots
-            p = (b + int(delta ** 0.5)) // 2
-            q = (b - int(delta ** 0.5)) // 2
-            
-            if p * q == n and isprime(p) and isprime(q):
-                return {
-                    'p': p,
-                    'q': q
-                }
-                
+
+        discriminant = b * b - 4 * a * c
+        sqrt_d = gmpy2.isqrt(discriminant)
+
+        if sqrt_d * sqrt_d != discriminant:
+            return None
+
+        x1 = (-b + sqrt_d) // 2
+        x2 = (-b - sqrt_d) // 2
+        p, q = int(x1), int(x2)
+
+        if p * q == n:
+            return {'p': p, 'q': q}
         return None
-        
     except Exception as e:
-        logger.error(f"Error finding factors: {str(e)}")
-        return None 
+        logger.error(f"Lỗi khi tìm p, q từ phi: {str(e)}")
+        return None

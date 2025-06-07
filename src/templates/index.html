@@ -320,6 +320,47 @@
                 </div>
             </div>
         </div>
+
+        <!-- Wiener Attack Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Wiener Attack</h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group mt-3">
+                    <button class="btn btn-secondary" onclick="generateSmallWienerKey()">Tạo khóa nhỏ demo Wiener Attack</button>
+            </div>
+                <div class="form-group mt-3">
+                    <label for="wienerSmallKeyN">Khóa nhỏ (n):</label>
+                    <input type="text" class="form-control" id="wienerSmallKeyN" readonly>
+                </div>
+                <div class="form-group mt-3">
+                    <label for="wienerSmallKeyE">Khóa nhỏ (e):</label>
+                    <input type="text" class="form-control" id="wienerSmallKeyE" readonly>
+                </div>
+                <div class="form-group mt-3">
+                    <label for="wienerSmallKeyD">Khóa nhỏ (d):</label>
+                    <input type="text" class="form-control" id="wienerSmallKeyD" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="wienerN">Modulus (n)</label>
+                    <input type="text" class="form-control" id="wienerN" placeholder="Enter modulus...">
+                </div>
+                <div class="form-group mt-3">
+                    <label for="wienerE">Public Exponent (e)</label>
+                    <input type="text" class="form-control" id="wienerE" placeholder="Enter public exponent...">
+                </div>
+                <button class="btn btn-primary mt-3" onclick="runWienerAttack()">Run Wiener Attack</button>
+                <div id="wienerLoading" class="loading mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2">Running Wiener attack...</p>
+                </div>
+                <div id="wienerResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Wiener Attack Results:</h3>
+                    <div id="wienerAttackOutput" class="bg-light p-2"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -822,6 +863,41 @@
                 document.getElementById('ccaResult').style.display = 'block';
                 document.getElementById('ccaOutput').textContent = `Error: ${error.message}`;
                 document.getElementById('ccaAttackLog').textContent = '';
+            }
+        }
+
+        async function runWienerAttack() {
+            const n = document.getElementById('wienerN').value.trim();
+            const e = document.getElementById('wienerE').value.trim();
+            document.getElementById('wienerLoading').style.display = 'block';
+            document.getElementById('wienerResult').style.display = 'none';
+            try {
+                const response = await fetch(`${API_URL}/wiener-attack`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ n, e })
+                });
+                const data = await response.json();
+                document.getElementById('wienerLoading').style.display = 'none';
+                document.getElementById('wienerResult').style.display = 'block';
+                document.getElementById('wienerAttackOutput').textContent = JSON.stringify(data.result, null, 2);
+            } catch (error) {
+                document.getElementById('wienerLoading').style.display = 'none';
+                document.getElementById('wienerResult').style.display = 'block';
+                document.getElementById('wienerAttackOutput').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Sinh khóa nhỏ dùng cho demo Wiener Attack
+        async function generateSmallWienerKey() {
+            try {
+                const response = await fetch(`${API_URL}/generate-small-wiener-key`);
+                const data = await response.json();
+                document.getElementById('wienerSmallKeyN').value = data.n;
+                document.getElementById('wienerSmallKeyE').value = data.e;
+                document.getElementById('wienerSmallKeyD').value = data.d;
+            } catch (error) {
+                alert('Không thể sinh khóa nhỏ: ' + error.message);
             }
         }
 

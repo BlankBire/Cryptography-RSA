@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 from Crypto.PublicKey import RSA
 import base64
+from Crypto.Util.number import getPrime, inverse, GCD
 
 # Configure logging
 logging.basicConfig(
@@ -416,6 +417,65 @@ def cca_attack():
     except Exception as e:
         logger.error(f"Error in cca_attack: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+@app.route('/api/wiener-attack', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def wiener_attack_api():
+    try:
+        data = request.get_json()
+        if not data or 'n' not in data or 'e' not in data:
+            raise ValueError("Missing required fields: n and e")
+        n = int(data['n'])
+        e = int(data['e'])
+        from attacks.wiener import wiener_attack
+        result = wiener_attack({'n': n, 'e': e})
+        logger.info("Wiener attack completed")
+        return jsonify({
+            'success': result.get('success', False),
+            'result': result,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in wiener_attack: {str(ve)}")
+        return jsonify({'success': False, 'message': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in wiener_attack: {str(e)}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+    
+@app.route('/api/generate-small-wiener-key', methods=['GET'])
+@limiter.limit("5 per minute")
+@log_request
+def generate_small_wiener_key():
+    import random
+    # Sinh khóa nhỏ dễ bị Wiener Attack (ví dụ n ~ 256 bit, d nhỏ)
+    # 1. Sinh p, q nhỏ (~64 bit để n ~ 128 bit → dễ bị tấn công)
+    while True:
+        p = getPrime(64)
+        q = getPrime(64)
+        n = p * q
+        phi = (p - 1) * (q - 1)
+        n_4th = int(n ** 0.25)
+
+        # 2. Chọn d nhỏ hơn (1/3)*n^(1/4) (cố tình để Wiener attack được)
+        d_bound = int((1/3) * n_4th)
+        if d_bound < 1000:
+            continue
+        d = random.randint(1000, d_bound)
+
+        # 3. Tính e = d⁻¹ mod phi
+        if GCD(d, phi) == 1:
+            try:
+                e = inverse(d, phi)
+                if 1 < e < n:
+                    return jsonify({
+                    'n': str(n),
+                    'e': str(e),
+                    'd': str(d)
+                    })                    
+            except ValueError:
+                continue
+    
 
 if __name__ == '__main__':
     # Create necessary directories
