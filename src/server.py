@@ -333,6 +333,38 @@ def factorize():
         logger.error(f"Error in factorize: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@app.route('/api/timing-attack', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def timing_attack():
+    try:
+        data = request.get_json()
+        if not data or 'n' not in data or 'e' not in data:
+            raise ValueError("Missing required fields: n and e")
+            
+        n = int(data['n'])
+        e = int(data['e'])
+        trials = int(data.get('trials', 10))  # Default to 10 trials if not specified
+        
+        from attacks.timing_attack import simulate_timing_attack
+        result = simulate_timing_attack(n, e, trials)
+        
+        logger.info(f"Timing attack completed successfully with {trials} trials")
+        return jsonify({
+            'success': True,
+            'statistics': result['statistics'],
+            'results': result['results'],
+            'execution_time': result['execution_time'],
+            'inference': result.get('inference'),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in timing_attack: {str(ve)}")
+        return jsonify({'success': False, 'message': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in timing_attack: {str(e)}")
+        return jsonify({'success': False, 'message': 'Internal server error'}), 500
+
 if __name__ == '__main__':
     # Create necessary directories
     os.makedirs('keys', exist_ok=True)
