@@ -28,14 +28,42 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='templates')
 CORS(app)
 
-# Initialize RSA cipher
-rsa = None  # Will be initialized when needed
+# Initialize RSA cipher and key storage
+rsa = None
+server_keys = None  # Store server's RSA keys
 
 def get_rsa_cipher():
     global rsa
     if rsa is None:
         rsa = RSACipher(key_size=3072)
     return rsa
+
+def initialize_server_keys():
+    global server_keys
+    try:
+        rsa_cipher = get_rsa_cipher()
+        public_key, private_key = rsa_cipher.generate_keypair(3072, 16777217)  # 3072 bits with e=16777217
+        
+        server_keys = {
+            'public_key': public_key,
+            'private_key': private_key
+        }
+        
+        # Log key information
+        logger.info("Server keys generated successfully:")
+        logger.info(f"Key size: 3072 bits")
+        logger.info(f"Public exponent (e): 16777217")
+        logger.info(f"Public Key (n): {public_key.n}")
+        logger.info(f"Private Key (d): {private_key.d}")
+        logger.info(f"Private Key (p): {private_key.p}")
+        logger.info(f"Private Key (q): {private_key.q}")
+        
+    except Exception as e:
+        logger.error(f"Error generating server keys: {str(e)}")
+        raise
+
+# Initialize server keys on startup
+initialize_server_keys()
 
 # Configure rate limiting
 limiter = Limiter(
@@ -74,43 +102,18 @@ def home():
 @log_request
 def generate_keys():
     try:
-        data = request.get_json()
-        if not data or 'bits' not in data:
-            raise ValueError("Missing key size parameter")
-        
-        bits = int(data['bits'])
-        public_exponent = 16777217  # Fixed public exponent
-        
-        logger.info(f"Generating keys with size: {bits} bits and public exponent: {public_exponent}")
-        
-        rsa_cipher = get_rsa_cipher()
-        public_key, private_key = rsa_cipher.generate_keypair(bits, public_exponent)
-        
-        # Log actual key size
-        actual_bits = public_key.size_in_bits()
-        logger.info(f"Generated key actual size: {actual_bits} bits")
-        
-        # Save keys
-        rsa_cipher.save_keys(public_key, private_key)
-        
-        # Convert keys to dict format
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
+        # Convert public key to dict format (only send public key to client)
         public_key_dict = {
-            'n': str(public_key.n),
-            'e': str(public_key.e)
-        }
-        private_key_dict = {
-            'n': str(private_key.n),
-            'e': str(private_key.e),
-            'd': str(private_key.d),
-            'p': str(private_key.p),
-            'q': str(private_key.q)
+            'n': str(server_keys['public_key'].n),
+            'e': str(server_keys['public_key'].e)
         }
         
-        logger.info(f"Key generation successful. Public key n length: {len(str(public_key.n))} digits")
-        
+        logger.info("Sending public key to client")
         return jsonify({
             'public_key': public_key_dict,
-            'private_key': private_key_dict,
             'timestamp': datetime.utcnow().isoformat()
         })
     except ValueError as ve:
@@ -126,16 +129,21 @@ def generate_keys():
 def sign_message():
     try:
         data = request.get_json()
-        if not data or 'message' not in data or 'private_key' not in data:
+        if not data or 'message' not in data:
             raise ValueError("Missing required fields")
+            
         message = data['message']
-        private_key = data['private_key']
-        # Convert all key fields to int (handle string from JSON)
-        for k in ['n', 'e', 'd', 'p', 'q']:
-            private_key[k] = int(private_key[k])
+        
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
         rsa_cipher = get_rsa_cipher()
-        signature = rsa_cipher.sign_message(message, private_key)
-        logger.info(f"Message signed successfully")
+        signature = rsa_cipher.sign_message(message, server_keys['private_key'])
+        
+        logger.info(f"Message signed successfully:")
+        logger.info(f"Original message: {message}")
+        logger.info(f"Signature: {signature}")
+        
         return jsonify({
             'signature': signature,
             'timestamp': datetime.utcnow().isoformat()
@@ -153,17 +161,22 @@ def sign_message():
 def verify_signature():
     try:
         data = request.get_json()
-        if not data or 'message' not in data or 'signature' not in data or 'public_key' not in data:
+        if not data or 'message' not in data or 'signature' not in data:
             raise ValueError("Missing required fields")
+            
         message = data['message']
         signature = data['signature']
-        public_key = data['public_key']
-        # Convert all key fields to int (handle string from JSON)
-        for k in ['n', 'e']:
-            public_key[k] = int(public_key[k])
+        
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
         rsa_cipher = get_rsa_cipher()
-        is_valid = rsa_cipher.verify_signature(message, signature, public_key)
+        is_valid = rsa_cipher.verify_signature(message, signature, server_keys['public_key'])
+        
         logger.info(f"Signature verification result: {is_valid}")
+        logger.info(f"Message: {message}")
+        logger.info(f"Signature: {signature}")
+        
         return jsonify({
             'is_valid': is_valid,
             'timestamp': datetime.utcnow().isoformat()
@@ -231,7 +244,17 @@ def encrypt_message():
         
         rsa_cipher = get_rsa_cipher()
         encrypted = rsa_cipher.encrypt_message(message, public_key)
-        logger.info(f"Message encrypted successfully")
+        
+        # Automatically decrypt the message using server's private key
+        try:
+            decrypted = rsa_cipher.decrypt_message(encrypted, server_keys['private_key'])
+            logger.info(f"Message encrypted and decrypted successfully:")
+            logger.info(f"Original message: {message}")
+            logger.info(f"Encrypted: {encrypted}")
+            logger.info(f"Decrypted: {decrypted}")
+        except Exception as e:
+            logger.error(f"Error during automatic decryption: {str(e)}")
+        
         return jsonify({
             'encrypted': encrypted,
             'timestamp': datetime.utcnow().isoformat()
@@ -241,44 +264,6 @@ def encrypt_message():
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in encrypt_message: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@app.route('/api/decrypt', methods=['POST'])
-@limiter.limit("100 per minute")
-@log_request
-def decrypt_message():
-    try:
-        data = request.get_json()
-        if not data or 'encrypted' not in data or 'private_key' not in data:
-            raise ValueError("Missing required fields")
-        encrypted = data['encrypted']
-        private_key_dict = data['private_key']
-        
-        # Convert all key fields to int (handle string from JSON)
-        for k in ['n', 'e', 'd', 'p', 'q']:
-            private_key_dict[k] = int(private_key_dict[k])
-            
-        # Create RSA key object from components
-        private_key = RSA.construct((
-            private_key_dict['n'],
-            private_key_dict['e'],
-            private_key_dict['d'],
-            private_key_dict['p'],
-            private_key_dict['q']
-        ))
-        
-        rsa_cipher = get_rsa_cipher()
-        decrypted = rsa_cipher.decrypt_message(encrypted, private_key)
-        logger.info(f"Message decrypted successfully")
-        return jsonify({
-            'decrypted': decrypted,
-            'timestamp': datetime.utcnow().isoformat()
-        })
-    except ValueError as ve:
-        logger.error(f"Validation error in decrypt_message: {str(ve)}")
-        return jsonify({'error': str(ve)}), 400
-    except Exception as e:
-        logger.error(f"Error in decrypt_message: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.route('/api/save-ciphertext', methods=['POST'])
@@ -476,6 +461,36 @@ def generate_small_wiener_key():
             except ValueError:
                 continue
     
+@app.route('/api/get-signed-message', methods=['GET'])
+@limiter.limit("100 per minute")
+@log_request
+def get_signed_message():
+    try:
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
+        # Generate a random message
+        message = f"Server message at {datetime.utcnow().isoformat()}"
+        
+        # Sign the message with server's private key
+        rsa_cipher = get_rsa_cipher()
+        signature = rsa_cipher.sign_message(message, server_keys['private_key'])
+        
+        logger.info(f"Generated and signed message:")
+        logger.info(f"Message: {message}")
+        logger.info(f"Signature: {signature}")
+        
+        return jsonify({
+            'message': message,
+            'signature': signature,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in get_signed_message: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in get_signed_message: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     # Create necessary directories
