@@ -19,7 +19,7 @@ def simulate_decryption_time(private_key, ciphertext):
     sentinel = Random.new().read(15)
     
     # Mô phỏng biến thể thời gian dựa trên một bit của khóa riêng tư (ví dụ: bit thứ 5 của 'd')
-    # Đây là để làm cho sự khác biệt thời gian có thể nhìn thấy cho mục đích trình diễn.
+    # Đây là để làm cho sự khác biệt thời gian có thể nhìn thấy cho mục đích demo.
     if hasattr(private_key, 'd') and private_key.d is not None:
         # Xác định độ lớn của vòng lặp bận rộn dựa trên bit của 'd'
         delay_iterations = 0
@@ -117,9 +117,6 @@ def simulate_timing_attack(n: int, e: int, trials: int = 10) -> Dict:
         inference_correct = False
         durations = [r['duration'] for r in result['results']]
         
-        # Ngưỡng giữa hai mức độ trễ của chúng ta (0.5s và 0.25s)
-        # base_decryption_time là rất nhỏ, nên có thể bỏ qua trong ngưỡng.
-        # Midpoint = (0.5 + 0.25) / 2 = 0.375
         median_time = statistics.median(durations)
         group1 = [t for t in durations if t < median_time]
         group2 = [t for t in durations if t >= median_time]
