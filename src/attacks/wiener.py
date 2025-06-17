@@ -42,16 +42,24 @@ def wiener_attack(public_key: Union[Dict, Tuple]) -> Dict:
         # Check if key is vulnerable to Wiener attack
         if d := _check_wiener_vulnerability(n, e):
             logger.info("Key is vulnerable to Wiener attack")
-            return {
-                'success': True,
-                'private_key': {
-                    'n': n,
-                    'd': d
-                },
-                'factors': _find_factors(n, e, d),
-                'message': 'Wiener attack successful',
-                'execution_time': time.time() - start_time
-            }
+            # Tìm phi từ d
+            k = (e * d - 1) // n
+            phi = (e * d - 1) // k
+            
+            # Tìm p và q
+            factors = _find_factors(n, phi)
+            if factors:
+                return {
+                    'success': True,
+                    'private_key': {
+                        'n': n,
+                        'e': e,
+                        'd': d
+                    },
+                    'factors': factors,
+                    'message': 'Wiener attack successful - found private key and factors',
+                    'execution_time': time.time() - start_time
+                }
             
         # If not vulnerable, try continued fraction method
         cf = continued_fraction(Rational(e, n))
@@ -80,10 +88,11 @@ def wiener_attack(public_key: Union[Dict, Tuple]) -> Dict:
                     'success': True,
                     'private_key': {
                         'n': n,
+                        'e': e,
                         'd': d
                     },
                     'factors': factors,
-                    'message': 'Wiener attack successful',
+                    'message': 'Wiener attack successful - found private key and factors',
                     'execution_time': time.time() - start_time
                 }
         
@@ -114,8 +123,9 @@ def _check_wiener_vulnerability(n: int, e: int) -> Union[int, None]:
         Private key d if vulnerable, None otherwise
     """
     try:
-        # Calculate upper bound for d
-        d_bound = int((1/3) * gmpy2.root(n, 4)[0])
+        # Calculate upper bound for d using n^(1/4)
+        n_4th_root = int(gmpy2.root(n, 4)[0])  # Sử dụng gmpy2.root cho số lớn
+        d_bound = int((1/3) * n_4th_root)
         
         # Try to find d using continued fractions
         convergents = list(continued_fraction_convergents(Rational(e, n)))
@@ -134,34 +144,43 @@ def _check_wiener_vulnerability(n: int, e: int) -> Union[int, None]:
 
 def _find_factors(n: int, phi: int) -> Union[Dict, None]:
     """
-    Find prime factors p and q of n using the private key d.
+    Find prime factors p and q of n using phi(n).
     
     Args:
         n: RSA modulus
-        e: Public exponent
-        d: Private key
+        phi: Euler's totient function value
         
     Returns:
         Dict containing p and q if found, None otherwise
     """
     try:
+        # Giải phương trình bậc 2: x^2 - (n - phi + 1)x + n = 0
+        # với x1 = p, x2 = q
         a = 1
         b = -(n - phi + 1)
         c = n
 
-        discriminant = b * b - 4 * a * c
-        sqrt_d = gmpy2.isqrt(discriminant)
-
-        if sqrt_d * sqrt_d != discriminant:
+        # Tính delta = b^2 - 4ac
+        delta = b * b - 4 * a * c
+        
+        # Kiểm tra delta có dương không
+        if delta <= 0:
+            return None
+            
+        # Kiểm tra delta có phải số chính phương không
+        sqrt_delta = int(gmpy2.isqrt(delta))  # Sử dụng gmpy2.isqrt cho số lớn
+        if sqrt_delta * sqrt_delta != delta:
             return None
 
-        x1 = (-b + sqrt_d) // 2
-        x2 = (-b - sqrt_d) // 2
-        p, q = int(x1), int(x2)
+        # Tính p và q
+        p = (-b + sqrt_delta) // (2 * a)
+        q = (-b - sqrt_delta) // (2 * a)
 
-        if p * q == n:
+        # Kiểm tra p và q có phải là số nguyên tố không
+        if p * q == n and isprime(p) and isprime(q):
             return {'p': p, 'q': q}
         return None
+        
     except Exception as e:
-        logger.error(f"Lỗi khi tìm p, q từ phi: {str(e)}")
+        logger.error(f"Error finding factors: {str(e)}")
         return None

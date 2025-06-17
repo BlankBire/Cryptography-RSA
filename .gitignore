@@ -3,8 +3,8 @@ __pycache__/
 venv/
 env/
 .venv/
-private_key.pem
-public_key.pem
+private.pem
+public.pem
 server.log
 ciphertext_samples.txt
 logs/

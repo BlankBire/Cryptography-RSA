@@ -214,6 +214,58 @@
             </div>
         </div>
 
+        <!-- Hastad Attack Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0">Hastad's Broadcast Attack</h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="hastadN">Modulus (n)</label>
+                            <input type="text" class="form-control" id="hastadN" placeholder="Enter modulus...">
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="hastadE">Public Exponent (e)</label>
+                            <input type="text" class="form-control" id="hastadE" placeholder="Enter public exponent...">
+                        </div>
+                        <div class="form-group mt-3">
+                            <label for="hastadCiphertexts" class="form-label">Ciphertexts (JSON array of {n, c}
+                                objects)</label>
+                            <textarea class="form-control" id="hastadCiphertexts" rows="3"
+                                placeholder='[{"n": "123456789", "c": "987654321"}, {"n": "987654321", "c": "123456789"}]'></textarea>
+                        </div>
+                        <button class="btn btn-primary mt-3" onclick="runHastadAttack()">Run Hastad Attack</button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="method-descriptions">
+                            <h6>About Hastad's Broadcast Attack:</h6>
+                            <p>Hastad's broadcast attack exploits the fact that if the same message is encrypted with
+                                the same small public exponent e to different recipients, then the message can be
+                                recovered using the Chinese Remainder Theorem.</p>
+                            <p>This attack is effective when:</p>
+                            <ul>
+                                <li>The public exponent e is small (typically 3 or 5)</li>
+                                <li>The same message is encrypted to e different recipients</li>
+                                <li>The moduli are pairwise coprime</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div id="hastadLoading" class="loading mt-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Running Hastad attack...</p>
+                </div>
+                <div id="hastadResult" class="mt-3" style="display: none;">
+                    <h3 class="h6">Hastad Attack Results:</h3>
+                    <pre id="hastadOutput" class="bg-light p-2"></pre>
+                </div>
+            </div>
+        </div>
+
         <!-- CCA Attack Section -->
         <div class="card mb-4">
             <div class="card-header">
@@ -310,30 +362,27 @@
     <script>
         const API_URL = 'http://localhost:4444/api';
         let currentPublicKey = null;
+        let currentPrivateKey = null;
 
         async function generateKeys() {
-            // Show loading
             document.getElementById('keyGenerationLoading').style.display = 'block';
             document.getElementById('keyGenerationResult').style.display = 'none';
 
             try {
                 const response = await fetch(`${API_URL}/generate-keys`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    method: 'POST'
                 });
-
                 const data = await response.json();
 
-                if (data.public_key) {
-                    data.public_key.n = data.public_key.n.toString();
-                    data.public_key.e = data.public_key.e.toString();
-                    currentPublicKey = data.public_key;
-                    document.getElementById('publicKey').textContent = JSON.stringify(data.public_key, null, 2);
-                    document.getElementById('keyGenerationResult').style.display = 'block';
-                } else if (data.error) {
-                    document.getElementById('keyGenerationResult').style.display = 'block';
-                    document.getElementById('publicKey').textContent = `Error: ${data.error}`;
+                if (data.error) {
+                    alert(`Error: ${data.error}`);
+                    return;
                 }
+
+                currentPublicKey = data.public_key;
+                currentPrivateKey = data.private_key;
+                document.getElementById('publicKey').textContent = JSON.stringify(data.public_key, null, 2);
+                document.getElementById('keyGenerationResult').style.display = 'block';
             } catch (error) {
                 document.getElementById('keyGenerationLoading').style.display = 'none';
                 document.getElementById('keyGenerationResult').style.display = 'block';
@@ -632,8 +681,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        ciphertext: ciphertext,
-                        public_key: currentPublicKey
+                        ciphertext: ciphertext
                     })
                 });
 
@@ -702,6 +750,56 @@
         // Helper function to convert hex to Base64 (for display)
         function hexToBase64(hex) {
             return btoa(String.fromCharCode.apply(null, hex.match(/\w{2}/g).map(function (a) { return parseInt(a, 16); })));
+        }
+
+        async function runHastadAttack() {
+            const n = document.getElementById('hastadN').value;
+            const e = document.getElementById('hastadE').value;
+            const ciphertexts = document.getElementById('hastadCiphertexts').value;
+
+            // Show loading
+            document.getElementById('hastadLoading').style.display = 'block';
+            document.getElementById('hastadResult').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/attacks/hastad', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        public_key: {
+                            n: n,
+                            e: e
+                        },
+                        ciphertexts: ciphertexts ? JSON.parse(ciphertexts) : []
+                    })
+                });
+
+                const result = await response.json();
+
+                // Hide loading and show result
+                document.getElementById('hastadLoading').style.display = 'none';
+                document.getElementById('hastadResult').style.display = 'block';
+
+                // Display result
+                const output = document.getElementById('hastadOutput');
+
+                if (!response.ok) {
+                    // Handle HTTP errors (e.g., 400, 500)
+                    const errorMessage = result.error || 'Unknown server error';
+                    output.innerHTML = `Attack failed: ${errorMessage}\nExecution Time: ${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}s`;
+                } else if (result.success) {
+                    output.innerHTML = `Attack successful!\n\nDecrypted Message: ${result.decrypted_message}\n${result.message_text ? `Message Text: ${result.message_text}\n` : ''}Execution Time: ${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}s`;
+                } else {
+                    output.innerHTML = `Attack failed: ${result.message}\nExecution Time: ${result.execution_time ? result.execution_time.toFixed(2) : 'N/A'}s`;
+                }
+            } catch (error) {
+                // Hide loading and show error
+                document.getElementById('hastadLoading').style.display = 'none';
+                document.getElementById('hastadResult').style.display = 'block';
+                document.getElementById('hastadOutput').innerHTML = `Error: ${error.message}`;
+            }
         }
     </script>
 </body>

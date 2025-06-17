@@ -70,6 +70,15 @@ def hastad_attack(public_key: Union[Dict, Tuple],
                 'execution_time': time.time() - start_time
             }
             
+        # Check if moduli are pairwise coprime
+        if not _are_coprime(moduli):
+            logger.warning("Moduli are not pairwise coprime")
+            return {
+                'success': False,
+                'message': 'Hastad attack failed: Moduli are not pairwise coprime',
+                'execution_time': time.time() - start_time
+            }
+            
         # Use Chinese Remainder Theorem to find message
         result = crt(moduli, remainders)
         if result is None:
@@ -88,13 +97,25 @@ def hastad_attack(public_key: Union[Dict, Tuple],
             # Try to find e-th root
             message = _find_eth_root(m, e)
             if message is not None:
-                logger.info("Successfully recovered message")
-                return {
-                    'success': True,
-                    'decrypted_message': message,
-                    'message': 'Hastad attack successful',
-                    'execution_time': time.time() - start_time
-                }
+                # Try to convert message to text
+                try:
+                    message_text = _int_to_text(message)
+                    logger.info("Successfully recovered message")
+                    return {
+                        'success': True,
+                        'decrypted_message': message,
+                        'message_text': message_text,
+                        'message': 'Hastad attack successful',
+                        'execution_time': time.time() - start_time
+                    }
+                except:
+                    # If conversion fails, return numeric message
+                    return {
+                        'success': True,
+                        'decrypted_message': message,
+                        'message': 'Hastad attack successful (numeric message)',
+                        'execution_time': time.time() - start_time
+                    }
         except Exception as e:
             logger.error(f"Error finding e-th root: {str(e)}")
             
@@ -112,6 +133,39 @@ def hastad_attack(public_key: Union[Dict, Tuple],
             'message': f'Error in Hastad attack: {str(e)}',
             'execution_time': time.time() - start_time
         }
+
+def _are_coprime(numbers: List[int]) -> bool:
+    """
+    Check if numbers are pairwise coprime.
+    
+    Args:
+        numbers: List of numbers to check
+        
+    Returns:
+        True if numbers are pairwise coprime, False otherwise
+    """
+    for i in range(len(numbers)):
+        for j in range(i + 1, len(numbers)):
+            if gmpy2.gcd(numbers[i], numbers[j]) != 1:
+                return False
+    return True
+
+def _int_to_text(n: int) -> str:
+    """
+    Convert integer to text.
+    
+    Args:
+        n: Integer to convert
+        
+    Returns:
+        Text representation of integer
+    """
+    try:
+        # Try to convert to bytes then to text
+        bytes_data = n.to_bytes((n.bit_length() + 7) // 8, 'big')
+        return bytes_data.decode('utf-8')
+    except:
+        raise ValueError("Cannot convert integer to text")
 
 def _generate_test_ciphertexts(n: int, e: int, 
                              num_ciphertexts: int = 3) -> List[Dict]:
@@ -133,11 +187,25 @@ def _generate_test_ciphertexts(n: int, e: int,
         
         # Generate ciphertexts
         ciphertexts = []
+        moduli = []
+        
         for i in range(num_ciphertexts):
             # Generate a different modulus for each ciphertext
-            p = gmpy2.next_prime(random.randint(2**512, 2**513))
-            q = gmpy2.next_prime(random.randint(2**512, 2**513))
-            n_i = p * q
+            while True:
+                p = gmpy2.next_prime(random.randint(2**512, 2**513))
+                q = gmpy2.next_prime(random.randint(2**512, 2**513))
+                n_i = p * q
+                
+                # Check if n_i is coprime with all previous moduli
+                is_coprime = True
+                for prev_n in moduli:
+                    if gmpy2.gcd(n_i, prev_n) != 1:
+                        is_coprime = False
+                        break
+                        
+                if is_coprime:
+                    moduli.append(n_i)
+                    break
             
             # Encrypt message
             c = pow(message, e, n_i)
@@ -166,8 +234,10 @@ def _find_eth_root(m: int, e: int) -> Union[int, None]:
     try:
         # Try to find e-th root using gmpy2
         root = gmpy2.root(m, e)
-        if root[1]:  # Check if root is exact
+        if isinstance(root, tuple) and root[1]:  # Check if root is exact
             return int(root[0])
+        elif isinstance(root, (int, float)):  # Handle single value return
+            return int(root)
             
         # If not exact, try binary search
         low = 0
@@ -188,4 +258,75 @@ def _find_eth_root(m: int, e: int) -> Union[int, None]:
         
     except Exception as e:
         logger.error(f"Error finding e-th root: {str(e)}")
-        return None 
+        return None
+
+def generate_test_example() -> Dict:
+    """
+    Generate a complete test example for Hastad attack.
+    
+    Returns:
+        Dict containing:
+            - public_key: dict with n and e
+            - ciphertexts: list of dicts with n and c
+            - original_message: the original message used
+    """
+    try:
+        # Generate a small message
+        message = 123
+        e = 3  # Small public exponent
+        
+        # Generate 3 coprime moduli
+        moduli = []
+        ciphertexts = []
+        
+        # First modulus
+        p1 = gmpy2.next_prime(random.randint(2**100, 2**101))
+        q1 = gmpy2.next_prime(random.randint(2**100, 2**101))
+        n1 = p1 * q1
+        moduli.append(n1)
+        c1 = pow(message, e, n1)
+        ciphertexts.append({
+            'n': str(n1),
+            'c': str(c1)
+        })
+        
+        # Second modulus
+        while True:
+            p2 = gmpy2.next_prime(random.randint(2**100, 2**101))
+            q2 = gmpy2.next_prime(random.randint(2**100, 2**101))
+            n2 = p2 * q2
+            if gmpy2.gcd(n2, n1) == 1:
+                moduli.append(n2)
+                c2 = pow(message, e, n2)
+                ciphertexts.append({
+                    'n': str(n2),
+                    'c': str(c2)
+                })
+                break
+        
+        # Third modulus
+        while True:
+            p3 = gmpy2.next_prime(random.randint(2**100, 2**101))
+            q3 = gmpy2.next_prime(random.randint(2**100, 2**101))
+            n3 = p3 * q3
+            if gmpy2.gcd(n3, n1) == 1 and gmpy2.gcd(n3, n2) == 1:
+                moduli.append(n3)
+                c3 = pow(message, e, n3)
+                ciphertexts.append({
+                    'n': str(n3),
+                    'c': str(c3)
+                })
+                break
+        
+        return {
+            'public_key': {
+                'n': str(n1),  # Use first modulus as public key
+                'e': str(e)
+            },
+            'ciphertexts': ciphertexts,
+            'original_message': message
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating test example: {str(e)}")
+        raise 

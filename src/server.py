@@ -105,15 +105,40 @@ def generate_keys():
         if not server_keys:
             raise ValueError("Server keys not initialized")
             
-        # Convert public key to dict format (only send public key to client)
+        # Convert keys to dict format
         public_key_dict = {
             'n': str(server_keys['public_key'].n),
             'e': str(server_keys['public_key'].e)
         }
         
-        logger.info("Sending public key to client")
+        private_key_dict = {
+            'n': str(server_keys['private_key'].n),
+            'e': str(server_keys['private_key'].e),
+            'd': str(server_keys['private_key'].d),
+            'p': str(server_keys['private_key'].p),
+            'q': str(server_keys['private_key'].q)
+        }
+        
+        # Save keys to .pem files
+        keys_dir = 'keys'
+        os.makedirs(keys_dir, exist_ok=True)
+
+        # Save public key
+        public_pem_path = os.path.join(keys_dir, 'public.pem')
+        with open(public_pem_path, 'wb') as f:
+            f.write(server_keys['public_key'].export_key(format='PEM'))
+        logger.info(f"Public key saved to {public_pem_path}")
+
+        # Save private key
+        private_pem_path = os.path.join(keys_dir, 'private.pem')
+        with open(private_pem_path, 'wb') as f:
+            f.write(server_keys['private_key'].export_key(format='PEM'))
+        logger.info(f"Private key saved to {private_pem_path}")
+
+        logger.info("Sending keys to client")
         return jsonify({
             'public_key': public_key_dict,
+            'private_key': private_key_dict,
             'timestamp': datetime.utcnow().isoformat()
         })
     except ValueError as ve:
@@ -245,6 +270,14 @@ def encrypt_message():
         rsa_cipher = get_rsa_cipher()
         encrypted = rsa_cipher.encrypt_message(message, public_key)
         
+        # Save ciphertext to file
+        ciphertext_dir = 'data'
+        os.makedirs(ciphertext_dir, exist_ok=True)
+        ciphertext_path = os.path.join(ciphertext_dir, 'ciphertext_samples.txt')
+        with open(ciphertext_path, 'w') as f: # Changed to 'w' for write (overwrite)
+            f.write(f"{encrypted}\n")
+        logger.info(f"Ciphertext saved to {ciphertext_path}")
+
         # Automatically decrypt the message using server's private key
         try:
             decrypted = rsa_cipher.decrypt_message(encrypted, server_keys['private_key'])
@@ -358,28 +391,19 @@ def timing_attack():
 def cca_attack():
     try:
         data = request.get_json()
-        if not data or 'ciphertext' not in data or 'private_key' not in data:
-            raise ValueError("Missing required fields: ciphertext and private_key")
+        if not data or 'ciphertext' not in data:
+            raise ValueError("Missing required field: ciphertext")
             
         ciphertext_b64 = data.get('ciphertext')
-        private_key_dict = data.get('private_key')
 
-        if not ciphertext_b64 or not private_key_dict:
-            raise ValueError("Missing ciphertext or private key")
+        if not ciphertext_b64:
+            raise ValueError("Missing ciphertext")
 
-        # Convert private key components to int
-        try:
-            private_key = RSA.construct((
-                int(private_key_dict['n']),
-                int(private_key_dict['e']),
-                int(private_key_dict['d']),
-                int(private_key_dict['p']),
-                int(private_key_dict['q'])
-            ))
-        except KeyError as ke:
-            raise ValueError(f"Missing private key component: {ke}")
-        except ValueError as ve:
-            raise ValueError(f"Invalid private key component: {ve}")
+        # Sử dụng server's private key
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
+        private_key = server_keys['private_key']
             
         # Decode Base64 ciphertext to bytes, then convert to hex string
         try:
@@ -490,6 +514,46 @@ def get_signed_message():
         return jsonify({'error': str(ve)}), 400
     except Exception as e:
         logger.error(f"Error in get_signed_message: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/attacks/hastad', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def hastad_attack_api():
+    try:
+        data = request.get_json()
+        if not data or 'public_key' not in data:
+            raise ValueError("Missing required fields")
+            
+        public_key = data['public_key']
+        ciphertexts = data.get('ciphertexts')  # Optional
+        
+        from attacks.hastad import hastad_attack
+        result = hastad_attack(public_key, ciphertexts)
+        
+        logger.info(f"Hastad attack completed")
+        return jsonify(result)
+        
+    except ValueError as ve:
+        logger.error(f"Validation error in hastad_attack_api: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in hastad_attack_api: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/generate-hastad-example', methods=['GET'])
+@limiter.limit("5 per minute")
+@log_request
+def generate_hastad_example():
+    try:
+        from attacks.hastad import generate_test_example
+        example = generate_test_example()
+        
+        logger.info(f"Generated Hastad test example with message: {example['original_message']}")
+        return jsonify(example)
+        
+    except Exception as e:
+        logger.error(f"Error generating Hastad example: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
