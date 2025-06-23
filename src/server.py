@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 from Crypto.PublicKey import RSA
 import base64
+import binascii
 from Crypto.Util.number import getPrime, inverse, GCD
 
 # Configure logging
@@ -280,11 +281,12 @@ def encrypt_message():
 
         # Automatically decrypt the message using server's private key
         try:
-            decrypted = rsa_cipher.decrypt_message(encrypted, server_keys['private_key'])
-            logger.info(f"Message encrypted and decrypted successfully:")
-            logger.info(f"Original message: {message}")
-            logger.info(f"Encrypted: {encrypted}")
-            logger.info(f"Decrypted: {decrypted}")
+            if server_keys is not None:
+                decrypted = rsa_cipher.decrypt_message(encrypted, server_keys['private_key'])
+                logger.info(f"Message encrypted and decrypted successfully:")
+                logger.info(f"Original message: {message}")
+                logger.info(f"Encrypted: {encrypted}")
+                logger.info(f"Decrypted: {decrypted}")
         except Exception as e:
             logger.error(f"Error during automatic decryption: {str(e)}")
         
@@ -298,6 +300,8 @@ def encrypt_message():
     except Exception as e:
         logger.error(f"Error in encrypt_message: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+
 
 @app.route('/api/save-ciphertext', methods=['POST'])
 @limiter.limit("100 per minute")
@@ -554,6 +558,59 @@ def generate_hastad_example():
         
     except Exception as e:
         logger.error(f"Error generating Hastad example: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/api/chosen-plaintext-attack', methods=['POST'])
+@limiter.limit("5 per minute")
+@log_request
+def chosen_plaintext_attack_api():
+    try:
+        data = request.get_json()
+        if not data or 'target_ciphertext' not in data:
+            raise ValueError("Missing required field: target_ciphertext")
+            
+        target_ciphertext_input = data.get('target_ciphertext')
+        max_queries = int(data.get('max_queries', 1000))
+
+        if not target_ciphertext_input:
+            raise ValueError("Missing target ciphertext")
+
+        # Tự động chuyển đổi Base64 sang Hex
+        try:
+            # Thử decode từ Base64, nếu thành công thì chuyển sang hex
+            ciphertext_bytes = base64.b64decode(target_ciphertext_input, validate=True)
+            target_ciphertext_hex = ciphertext_bytes.hex()
+            logger.info("Decoded Base64 ciphertext to hex for CPA attack.")
+        except (ValueError, TypeError, binascii.Error):
+            # Nếu không phải Base64, giả sử nó là hex
+            target_ciphertext_hex = target_ciphertext_input
+            logger.info("Assuming input is hex for CPA attack.")
+
+        # Sử dụng server's public key
+        if not server_keys:
+            raise ValueError("Server keys not initialized")
+            
+        public_key = server_keys['public_key']
+        
+        # Import và sử dụng chosen plaintext attack
+        from attacks.chosen_plaintext_attack import chosen_plaintext_attack, simulate_encryption_oracle
+        
+        # Tạo oracle function sử dụng server's public key
+        def encryption_oracle(plaintext: bytes) -> bytes:
+            return simulate_encryption_oracle(public_key, plaintext)
+        
+        result = chosen_plaintext_attack(public_key, target_ciphertext_hex, encryption_oracle, max_queries)
+        
+        logger.info(f"Chosen Plaintext Attack performed successfully")
+        return jsonify({
+            'result': result,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except ValueError as ve:
+        logger.error(f"Validation error in chosen_plaintext_attack: {str(ve)}")
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(f"Error in chosen_plaintext_attack: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':

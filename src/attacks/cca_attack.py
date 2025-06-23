@@ -5,37 +5,6 @@ import random
 from typing import Dict, List, Optional
 from Crypto.Util.number import bytes_to_long, long_to_bytes
 
-def cca_oracle(ciphertext, private_key):
-    """
-    Oracle cho attacker biết ciphertext có hợp lệ hay không khi giải mã.
-    Đây là cơ sở cho CCA (Chosen Ciphertext Attack).
-    """
-    cipher = PKCS1_OAEP.new(private_key)
-    try:
-        plaintext = cipher.decrypt(ciphertext)
-        return True  # giải mã thành công (ciphertext hợp lệ)
-    except ValueError:
-        return False  # lỗi giải mã (ciphertext không hợp lệ)
-
-def simulate_cca_attack(ciphertext, private_key, public_key):
-    """
-    Mô phỏng một cuộc tấn công CCA cơ bản: attacker thay đổi ciphertext
-    và dùng oracle để thu thập thông tin từ phản hồi.
-    """
-    print("[📡] Simulating Chosen Ciphertext Attack (CCA)...")
-
-    # Đổi từng bit một của ciphertext và hỏi oracle
-    valid_count = 0
-    for i in range(len(ciphertext)):
-        for bit in range(8):
-            modified = bytearray(ciphertext)
-            modified[i] ^= (1 << bit)
-            if cca_oracle(bytes(modified), private_key):
-                valid_count += 1
-
-    print(f"[🔍] Valid modified ciphertexts: {valid_count}")
-    return valid_count
-
 # --- Simulated Padding Oracle ---
 def simulate_padding_oracle(private_key: RSA.RsaKey, ciphertext: bytes) -> bool:
     """
@@ -105,11 +74,18 @@ def padding_oracle_attack(private_key: RSA.RsaKey, ciphertext_hex: str, max_quer
 
         # Step 0: Perform actual decryption of the target_ciphertext for demonstration purposes.
         # In a real attack, this is what the attacker is trying to find.
-        actual_decrypted_message_bytes = b''
+        actual_decrypted_message_bytes: bytes = b''
         try:
             cipher_v1_5_decrypt = PKCS1_v1_5.new(private_key)
             # The `None` sentinel causes `decrypt` to raise ValueError on padding error, which our oracle expects.
-            actual_decrypted_message_bytes = cipher_v1_5_decrypt.decrypt(target_ciphertext, None)
+            decrypted_result = cipher_v1_5_decrypt.decrypt(target_ciphertext, None) 
+            #demo lấy sẵn bản rõ chia thành nhiều phần để hiển thị quá trình phục hồi
+            
+            if decrypted_result is not None:
+                actual_decrypted_message_bytes = decrypted_result
+            else:
+                # Handle case where decrypt returns None
+                actual_decrypted_message_bytes = b''
         except ValueError as ve:
             message = f"Target ciphertext is not valid PKCS#1 v1.5 format or cannot be decrypted by oracle: {ve}"
             success = False
