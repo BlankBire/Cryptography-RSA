@@ -1,0 +1,65 @@
+<section class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-secondary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-stopwatch me-2"></i>Timing Attack
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="timingN" class="form-label">Modulus (n)</label>
+          <input
+            type="text"
+            class="form-control"
+            id="timingN"
+            placeholder="Enter modulus..."
+          />
+          <label for="timingE" class="form-label mt-3"
+            >Public Exponent (e)</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            id="timingE"
+            placeholder="Enter public exponent..."
+          />
+          <label for="timingTrials" class="form-label mt-3"
+            >Number of Trials</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="timingTrials"
+            value="10"
+            min="1"
+            max="100"
+          />
+          <button class="btn btn-secondary mt-3" onclick="runTimingAttack()">
+            Run Timing Attack
+          </button>
+          <div id="timingLoading" class="mt-3" style="display: none">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <span class="ms-2">Running timing attack...</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <h6>About</h6>
+          <p class="small text-muted">
+            Timing attacks leverage variations in decryption time to infer
+            private key bits. This demo generates synthetic timing data and
+            attempts to recover a selected bit from the private exponent.
+          </p>
+        </div>
+      </div>
+      <div id="timingAttackResult" class="mt-3" style="display: none">
+        <h3 class="h6">Results</h3>
+        <div id="timingAttackOutput" class="bg-light p-3 rounded"></div>
+        <div id="timingInferenceSection" class="mt-3">
+          <h6 class="h6">Inference</h6>
+          <div id="timingInferenceOutput" class="bg-light p-3 rounded"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

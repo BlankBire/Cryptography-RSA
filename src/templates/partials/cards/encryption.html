@@ -1,0 +1,27 @@
+<section id="encryption" class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-primary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-lock me-2"></i>Message Encryption
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="messageToEncrypt" class="form-label">Message</label>
+        <textarea
+          class="form-control"
+          id="messageToEncrypt"
+          rows="3"
+          placeholder="Enter text to encrypt..."
+        ></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="encryptMessage()">
+        Encrypt Message
+      </button>
+      <div id="encryptionResult" class="mt-3" style="display: none">
+        <h3 class="h6">Encrypted Output</h3>
+        <pre id="encryptedMessage" class="bg-light p-3 rounded"></pre>
+      </div>
+    </div>
+  </div>
+</section>

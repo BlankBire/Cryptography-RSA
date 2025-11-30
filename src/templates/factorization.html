@@ -1,0 +1,12 @@
+{% extends "layout/base.html" %} {% block title %}Factorization Playground{%
+endblock %} {% block content %}
+<header class="mb-4">
+  <h1 class="h3">Factorization Playground</h1>
+  <p class="text-muted">
+    Run experiments focused solely on integer factorization strategies.
+  </p>
+</header>
+{% include "partials/cards/factorization.html" %} {% endblock %} {% block
+scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

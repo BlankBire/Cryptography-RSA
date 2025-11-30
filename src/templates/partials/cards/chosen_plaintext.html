@@ -1,0 +1,63 @@
+<section class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-secondary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-user-secret me-2"></i>Chosen Plaintext Attack
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="cpaTargetCiphertext" class="form-label"
+            >Target Ciphertext (Hex or Base64)</label
+          >
+          <textarea
+            class="form-control"
+            id="cpaTargetCiphertext"
+            rows="3"
+            placeholder="Paste ciphertext to attack..."
+          ></textarea>
+          <label for="cpaMaxQueries" class="form-label mt-3"
+            >Maximum Queries</label
+          >
+          <input
+            type="number"
+            class="form-control"
+            id="cpaMaxQueries"
+            value="1000"
+            min="1"
+            max="10000"
+          />
+          <button
+            class="btn btn-secondary mt-3"
+            onclick="runChosenPlaintextAttack()"
+          >
+            Run CPA Simulation
+          </button>
+          <div id="cpaLoading" class="mt-3" style="display: none">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <span class="ms-2">Running chosen plaintext simulation...</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <h6>About</h6>
+          <p class="small text-muted">
+            Demonstrates how access to an encryption oracle reveals structure
+            via RSA's multiplicative property. The simulation replays typical
+            probing steps and logs intermediate deductions.
+          </p>
+        </div>
+      </div>
+      <div id="cpaResult" class="mt-3" style="display: none">
+        <h3 class="h6">Results</h3>
+        <div id="cpaOutput" class="bg-light p-3 rounded"></div>
+        <h6 class="h6 mt-3">Attack Log</h6>
+        <div
+          id="cpaAttackLog"
+          class="bg-light p-3 rounded"
+          style="max-height: 280px; overflow-y: auto"
+        ></div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,65 @@
+<section class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-secondary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-broadcast-tower me-2"></i>Hastad's Broadcast
+        Attack
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <label for="hastadN" class="form-label">Modulus (n)</label>
+          <input
+            type="text"
+            class="form-control"
+            id="hastadN"
+            placeholder="Enter modulus..."
+          />
+          <label for="hastadE" class="form-label mt-3"
+            >Public Exponent (e)</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            id="hastadE"
+            placeholder="Enter public exponent..."
+          />
+          <label for="hastadCiphertexts" class="form-label mt-3"
+            >Ciphertexts (JSON)</label
+          >
+          <textarea
+            class="form-control"
+            id="hastadCiphertexts"
+            rows="3"
+            placeholder='[{"n": "123", "c": "456"}]'
+          ></textarea>
+          <button class="btn btn-secondary mt-3" onclick="runHastadAttack()">
+            Run Hastad Attack
+          </button>
+          <div id="hastadLoading" class="mt-3" style="display: none">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <span class="ms-2">Running attack...</span>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <h6>About</h6>
+          <p class="small text-muted">
+            Exploits reuse of small exponents across distinct RSA moduli.
+            Provide at least <em>e</em>
+            ciphertexts with pairwise coprime moduli to recover the original
+            plaintext using CRT and e-th roots.
+          </p>
+          <div class="alert alert-info small" role="alert">
+            Leave the ciphertexts input blank to auto-generate demo data
+            compatible with the supplied public exponent.
+          </div>
+        </div>
+      </div>
+      <div id="hastadResult" class="mt-3" style="display: none">
+        <h3 class="h6">Results</h3>
+        <pre id="hastadOutput" class="bg-light p-3 rounded"></pre>
+      </div>
+    </div>
+  </div>
+</section>

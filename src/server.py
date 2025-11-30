@@ -1,26 +1,32 @@
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from rsa_core import RSACipher
-from keygen import generate_rsa_keypair
+from rsa_cryptanalysis.core.rsa_cipher import RSACipher
 import json
 import logging
 from functools import wraps
 import time
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import os
 from datetime import datetime
+from pathlib import Path
+from io import SEEK_END
 from Crypto.PublicKey import RSA
 import base64
 import binascii
 from Crypto.Util.number import getPrime, inverse, GCD
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+KEYS_DIR = BASE_DIR / "keys"
+LOG_FILE = BASE_DIR / "server.log"
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('server.log'),
+        logging.FileHandler(LOG_FILE, encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -121,18 +127,17 @@ def generate_keys():
         }
         
         # Save keys to .pem files
-        keys_dir = 'keys'
-        os.makedirs(keys_dir, exist_ok=True)
+        KEYS_DIR.mkdir(parents=True, exist_ok=True)
 
         # Save public key
-        public_pem_path = os.path.join(keys_dir, 'public.pem')
-        with open(public_pem_path, 'wb') as f:
+        public_pem_path = KEYS_DIR / 'public.pem'
+        with public_pem_path.open('wb') as f:
             f.write(server_keys['public_key'].export_key(format='PEM'))
         logger.info(f"Public key saved to {public_pem_path}")
 
         # Save private key
-        private_pem_path = os.path.join(keys_dir, 'private.pem')
-        with open(private_pem_path, 'wb') as f:
+        private_pem_path = KEYS_DIR / 'private.pem'
+        with private_pem_path.open('wb') as f:
             f.write(server_keys['private_key'].export_key(format='PEM'))
         logger.info(f"Private key saved to {private_pem_path}")
 
@@ -227,10 +232,10 @@ def perform_attack():
         public_key = data['public_key']
         
         if attack_type == 'wiener':
-            from attacks.wiener import wiener_attack
+            from rsa_cryptanalysis.attacks.wiener import wiener_attack
             result = wiener_attack(public_key)
         elif attack_type == 'hastad':
-            from attacks.hastad import hastad_attack
+            from rsa_cryptanalysis.attacks.hastad import hastad_attack
             result = hastad_attack(public_key)
         else:
             raise ValueError("Invalid attack type")
@@ -272,12 +277,29 @@ def encrypt_message():
         encrypted = rsa_cipher.encrypt_message(message, public_key)
         
         # Save ciphertext to file
-        ciphertext_dir = 'data'
-        os.makedirs(ciphertext_dir, exist_ok=True)
-        ciphertext_path = os.path.join(ciphertext_dir, 'ciphertext_samples.txt')
-        with open(ciphertext_path, 'w') as f: # Changed to 'w' for write (overwrite)
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        ciphertext_path = DATA_DIR / 'ciphertext_samples.txt'
+        with ciphertext_path.open('w', encoding='utf-8') as f:
             f.write(f"{encrypted}\n")
         logger.info(f"Ciphertext saved to {ciphertext_path}")
+
+        # Append plaintext sample for reference
+        plaintext_path = DATA_DIR / 'plaintext_samples.txt'
+        needs_line_break = False
+        if plaintext_path.exists():
+            try:
+                with plaintext_path.open('rb') as existing_file:
+                    existing_file.seek(0, SEEK_END)
+                    if existing_file.tell() > 0:
+                        existing_file.seek(-1, SEEK_END)
+                        needs_line_break = existing_file.read(1) not in (b"\n", b"\r")
+            except OSError as exc:  # pragma: no cover - best effort append handling
+                logger.warning(f"Unable to inspect plaintext log tail: {exc}")
+        with plaintext_path.open('a', encoding='utf-8') as f:
+            if needs_line_break:
+                f.write("\n")
+            f.write(f"{message}\n")
+        logger.info(f"Plaintext appended to {plaintext_path}")
 
         # Automatically decrypt the message using server's private key
         try:
@@ -313,10 +335,11 @@ def save_ciphertext():
             raise ValueError("Missing ciphertext data")
         
         ciphertext = data['ciphertext']
-        ciphertext_path = os.path.join('data', 'ciphertext_samples.txt')
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        ciphertext_path = DATA_DIR / 'ciphertext_samples.txt'
         
         # Save ciphertext to file
-        with open(ciphertext_path, 'w') as f:
+        with ciphertext_path.open('w', encoding='utf-8') as f:
             f.write(ciphertext)
         
         logger.info(f"Ciphertext saved to {ciphertext_path}")
@@ -344,7 +367,7 @@ def factorize():
         n = int(data['n'])
         method = data.get('method', 'auto')
         
-        from attacks.factorization import factorize
+        from rsa_cryptanalysis.attacks.factorization import factorize
         result = factorize(n, method)
         
         logger.info(f"Factorization completed for n={n} using method={method}")
@@ -370,7 +393,7 @@ def timing_attack():
         e = int(data['e'])
         trials = int(data.get('trials', 10))  # Default to 10 trials if not specified
         
-        from attacks.timing_attack import simulate_timing_attack
+        from rsa_cryptanalysis.attacks.timing_attack import simulate_timing_attack
         result = simulate_timing_attack(n, e, trials)
         
         logger.info(f"Timing attack completed successfully with {trials} trials")
@@ -416,7 +439,7 @@ def cca_attack():
         except Exception as e:
             raise ValueError(f"Invalid Base64 ciphertext: {e}")
 
-        from attacks.cca_attack import padding_oracle_attack
+        from rsa_cryptanalysis.attacks.cca_attack import padding_oracle_attack
         result = padding_oracle_attack(private_key, ciphertext_hex)
         
         logger.info(f"CCA attack performed successfully")
@@ -441,7 +464,7 @@ def wiener_attack_api():
             raise ValueError("Missing required fields: n and e")
         n = int(data['n'])
         e = int(data['e'])
-        from attacks.wiener import wiener_attack
+        from rsa_cryptanalysis.attacks.wiener import wiener_attack
         result = wiener_attack({'n': n, 'e': e})
         logger.info("Wiener attack completed")
         return jsonify({
@@ -532,7 +555,7 @@ def hastad_attack_api():
         public_key = data['public_key']
         ciphertexts = data.get('ciphertexts')  # Optional
         
-        from attacks.hastad import hastad_attack
+        from rsa_cryptanalysis.attacks.hastad import hastad_attack
         result = hastad_attack(public_key, ciphertexts)
         
         logger.info(f"Hastad attack completed")
@@ -550,7 +573,7 @@ def hastad_attack_api():
 @log_request
 def generate_hastad_example():
     try:
-        from attacks.hastad import generate_test_example
+        from rsa_cryptanalysis.attacks.hastad import generate_test_example
         example = generate_test_example()
         
         logger.info(f"Generated Hastad test example with message: {example['original_message']}")
@@ -593,7 +616,10 @@ def chosen_plaintext_attack_api():
         public_key = server_keys['public_key']
         
         # Import và sử dụng chosen plaintext attack
-        from attacks.chosen_plaintext_attack import chosen_plaintext_attack, simulate_encryption_oracle
+        from rsa_cryptanalysis.attacks.chosen_plaintext_attack import (
+            chosen_plaintext_attack,
+            simulate_encryption_oracle,
+        )
         
         # Tạo oracle function sử dụng server's public key
         def encryption_oracle(plaintext: bytes) -> bytes:
@@ -615,8 +641,8 @@ def chosen_plaintext_attack_api():
 
 if __name__ == '__main__':
     # Create necessary directories
-    os.makedirs('keys', exist_ok=True)
-    os.makedirs('results', exist_ok=True)
-    
+    KEYS_DIR.mkdir(parents=True, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
     # Run the Flask app
     app.run(host='0.0.0.0', port=4444, debug=True) 

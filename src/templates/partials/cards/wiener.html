@@ -1,0 +1,85 @@
+<section class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-secondary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-wave-square me-2"></i>Wiener Attack
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <button
+            class="btn btn-outline-secondary"
+            onclick="generateSmallWienerKey()"
+          >
+            Generate Vulnerable Demo Key
+          </button>
+          <div class="row g-2 mt-3">
+            <div class="col-12">
+              <label for="wienerSmallKeyN" class="form-label"
+                >Demo Modulus (n)</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="wienerSmallKeyN"
+                readonly
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="wienerSmallKeyE" class="form-label"
+                >Demo Public Exponent (e)</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="wienerSmallKeyE"
+                readonly
+              />
+            </div>
+            <div class="col-md-6">
+              <label for="wienerSmallKeyD" class="form-label"
+                >Demo Private Exponent (d)</label
+              >
+              <input
+                type="text"
+                class="form-control"
+                id="wienerSmallKeyD"
+                readonly
+              />
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="wienerN" class="form-label">Modulus (n)</label>
+          <input
+            type="text"
+            class="form-control"
+            id="wienerN"
+            placeholder="Enter modulus..."
+          />
+          <label for="wienerE" class="form-label mt-3"
+            >Public Exponent (e)</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            id="wienerE"
+            placeholder="Enter public exponent..."
+          />
+          <button class="btn btn-secondary mt-3" onclick="runWienerAttack()">
+            Run Wiener Attack
+          </button>
+          <div id="wienerLoading" class="mt-3" style="display: none">
+            <div class="spinner-border text-secondary" role="status"></div>
+            <span class="ms-2">Running Wiener attack...</span>
+          </div>
+        </div>
+      </div>
+      <div id="wienerResult" class="mt-3" style="display: none">
+        <h3 class="h6">Results</h3>
+        <div id="wienerAttackOutput" class="bg-light p-3 rounded"></div>
+      </div>
+    </div>
+  </div>
+</section>

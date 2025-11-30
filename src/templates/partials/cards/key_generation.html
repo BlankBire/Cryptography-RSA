@@ -1,0 +1,29 @@
+<section id="key-generation" class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-primary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-key me-2"></i>RSA Key Generation
+      </h2>
+    </div>
+    <div class="card-body">
+      <p class="text-muted mb-3">
+        Fetch the server public key before encrypting or verifying messages.
+      </p>
+      <button class="btn btn-primary" onclick="generateKeys()">
+        Get Public Key
+      </button>
+      <div
+        id="keyGenerationLoading"
+        class="mt-3 d-flex align-items-center gap-2"
+        style="display: none"
+      >
+        <div class="spinner-border text-primary" role="status"></div>
+        <span>Retrieving public key...</span>
+      </div>
+      <div id="keyGenerationResult" class="mt-3" style="display: none">
+        <h3 class="h6">Server Public Key</h3>
+        <pre id="publicKey" class="bg-light p-3 rounded"></pre>
+      </div>
+    </div>
+  </div>
+</section>

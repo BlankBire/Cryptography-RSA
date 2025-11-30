@@ -1,0 +1,46 @@
+<section id="server-signature" class="mb-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-header bg-primary text-white">
+      <h2 class="h5 mb-0">
+        <i class="fa-solid fa-shield-halved me-2"></i>Server Message
+        Verification
+      </h2>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Signed Message</label>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary" onclick="getSignedMessage()">
+            Get Signed Message
+          </button>
+          <button class="btn btn-outline-secondary" onclick="verifySignature()">
+            Verify Signature
+          </button>
+        </div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="serverMessage">Message</label>
+          <textarea
+            class="form-control"
+            id="serverMessage"
+            rows="4"
+            readonly
+          ></textarea>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="serverSignature">Signature</label>
+          <textarea
+            class="form-control"
+            id="serverSignature"
+            rows="4"
+            readonly
+          ></textarea>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div id="verificationResult" class="alert" style="display: none"></div>
+      </div>
+    </div>
+  </div>
+</section>
